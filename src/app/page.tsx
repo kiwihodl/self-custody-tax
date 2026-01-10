@@ -25,16 +25,27 @@ export default function Home() {
                 className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 lg:w-40 lg:h-40"
                 priority
               />
-              <h1
-                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight"
-                style={{
-                  background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 50%, #D4AF37 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text'
-                }}
-              >
-                SELF CUSTODY TAX
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight">
+                <span
+                  style={{
+                    background: 'linear-gradient(180deg, #FFE5A0 0%, #D4AF37 25%, #B8860B 50%, #D4AF37 75%, #FFE5A0 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  SELF
+                </span>{' '}
+                <span
+                  style={{
+                    background: 'linear-gradient(180deg, #FFFFFF 0%, #E8E8E8 50%, #CCCCCC 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  CUSTODY TAX
+                </span>
               </h1>
             </div>
 
