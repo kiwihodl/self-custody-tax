@@ -20,9 +20,9 @@ export default function Home() {
               <Image
                 src="/logo-full.png"
                 alt="Self Custody Tax"
-                width={320}
-                height={80}
-                className="h-16 md:h-20 w-auto"
+                width={500}
+                height={125}
+                className="h-24 md:h-32 lg:h-40 w-auto"
                 priority
               />
             </div>
