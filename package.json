@@ -1,0 +1,38 @@
+{
+  "name": "self-custody-tax",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bitcoinerlab/descriptors": "^2.3.6",
+    "@bitcoinerlab/secp256k1": "^1.2.0",
+    "@noble/hashes": "^2.0.1",
+    "@scure/bip32": "^2.0.1",
+    "@scure/btc-signer": "^2.0.1",
+    "@stripe/stripe-js": "^8.6.1",
+    "@supabase/ssr": "^0.1",
+    "@supabase/supabase-js": "^2",
+    "bignumber.js": "^9",
+    "next": "14.2.35",
+    "react": "^18",
+    "react-dom": "^18",
+    "stripe": "^20.1.2",
+    "swr": "^2.3.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.35",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
+}
