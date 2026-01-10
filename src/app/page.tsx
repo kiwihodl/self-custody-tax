@@ -16,13 +16,13 @@ export default function Home() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
           <div className="text-center">
             {/* Logo */}
-            <div className="mb-8 flex justify-center">
+            <div className="mb-10 flex justify-center">
               <Image
                 src="/logo-full.png"
                 alt="Self Custody Tax"
-                width={500}
-                height={125}
-                className="h-24 md:h-32 lg:h-40 w-auto"
+                width={600}
+                height={150}
+                className="h-32 sm:h-40 md:h-48 lg:h-56 w-auto max-w-[90vw]"
                 priority
               />
             </div>
