@@ -19,6 +19,12 @@ export const metadata: Metadata = {
     "crypto cost basis calculator",
     "UTXO tracking",
   ],
+  icons: {
+    icon: [
+      { url: "/logo-icon.png", type: "image/png" },
+    ],
+    apple: "/logo-icon.png",
+  },
 };
 
 export default function RootLayout({
