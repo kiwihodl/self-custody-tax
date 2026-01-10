@@ -16,15 +16,26 @@ export default function Home() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
           <div className="text-center">
             {/* Logo */}
-            <div className="mb-10 flex justify-center">
+            <div className="mb-10 flex flex-col items-center gap-4">
               <Image
-                src="/logo-full.png"
+                src="/logo-icon.png"
                 alt="Self Custody Tax"
-                width={800}
-                height={200}
-                style={{ height: 'auto', width: 'clamp(280px, 60vw, 700px)' }}
+                width={120}
+                height={120}
+                className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 lg:w-40 lg:h-40"
                 priority
               />
+              <h1
+                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight"
+                style={{
+                  background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 50%, #D4AF37 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}
+              >
+                SELF CUSTODY TAX
+              </h1>
             </div>
 
             {/* Tagline */}
@@ -297,7 +308,7 @@ export default function Home() {
               <div className="space-y-3 text-sm text-text-secondary">
                 <p>1 wallet</p>
                 <p>50 transactions</p>
-                <p>Basic reports</p>
+                <p>$21 one-time to export</p>
               </div>
             </div>
 
