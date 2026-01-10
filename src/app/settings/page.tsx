@@ -308,7 +308,7 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between p-4 bg-bg-elevated rounded-xl">
               <div>
                 <p className="font-medium text-text-primary">Current Plan</p>
-                <p className="text-sm text-text-secondary">Free tier - 3 wallets, 100 transactions</p>
+                <p className="text-sm text-text-secondary">Free tier - 1 wallet, 50 transactions, $21 to export</p>
               </div>
               <a href="/pricing" className="btn-primary">
                 Upgrade

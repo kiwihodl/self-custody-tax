@@ -73,7 +73,7 @@ Self Custody Tax is purpose-built for Bitcoin self-custody:
 | Internal transfer detection | Partial | Partial | ✅ Automatic |
 | Collaborative custody | ❌ | ❌ | ✅ |
 | Target user | Traders | Traders | Holders |
-| Free tier | 10K txns | 25 txns | 3 wallets |
+| Free tier | 10K txns | 25 txns | 1 wallet |
 | Starting price | $49/yr | $59/yr | $99/yr |
 
 **Competitive moat:** Deep understanding of Bitcoin-specific infrastructure that generic multi-chain tools won't prioritize. As multisig adoption grows (driven by security awareness), this moat deepens.
@@ -84,7 +84,7 @@ Self Custody Tax is purpose-built for Bitcoin self-custody:
 
 | Tier | Price | Features |
 |------|-------|----------|
-| **Free** | $0 | 3 wallets, 100 transactions, basic portfolio view |
+| **Free** | $0 | 1 wallet, 50 transactions, $21 export fee, basic portfolio view |
 | **Holder** | $99/year | 10 wallets, unlimited transactions, tax reports, cost basis methods |
 | **Sovereign** | $249/year | Unlimited wallets, multisig support, internal transfer detection, priority support |
 | **Advisor** | $499/year | Multi-client dashboard, white-label reports, API access |

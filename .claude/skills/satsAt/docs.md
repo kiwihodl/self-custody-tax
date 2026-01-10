@@ -316,7 +316,7 @@ A: We only store xpubs (extended public keys), which can view transactions but c
 A: We track at the UTXO level for maximum accuracy. Our calculations follow IRS guidelines.
 
 **Q: Can I track multiple wallets?**
-A: Yes! Free tier: 3 wallets. Holder: 10 wallets. Sovereign: Unlimited.
+A: Yes! Free tier: 1 wallet. Holder: 10 wallets. Sovereign: Unlimited.
 ```
 
 ---
