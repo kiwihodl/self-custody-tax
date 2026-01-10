@@ -84,22 +84,16 @@ npm install
 nano .env.local
 ```
 
-**Required `.env.local` contents:**
-```
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+**Create `.env.local` - run this command:**
+```bash
+cat > /var/www/self-custody-tax/.env.local << 'EOF'
+NEXT_PUBLIC_SUPABASE_URL=https://xubvwihuxgshzvraafzg.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_9OzyYhLpEoGeQNraWNo2NQ_LEAYlmoJ
+SUPABASE_SERVICE_ROLE_KEY=sb_secret_H0PNyvDwV6OqmQiHAJiPgA_0cJ5mTq1
+COINGECKO_API_KEY=CG-bmHdosmBWTWwUSNCTU9CHLyL
+ETHERSCAN_API_KEY=
 NEXT_PUBLIC_APP_URL=https://selfcustodytax.com
-
-# Optional
-COINGECKO_API_KEY=your-key
-ETHERSCAN_API_KEY=your-key
-
-# Stripe (for subscriptions)
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_HOLDER_PRICE_ID=price_...
-STRIPE_SOVEREIGN_PRICE_ID=price_...
-STRIPE_ADVISOR_PRICE_ID=price_...
+EOF
 ```
 
 ```bash
