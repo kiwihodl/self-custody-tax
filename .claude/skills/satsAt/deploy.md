@@ -114,14 +114,33 @@ pm2 save
 pm2 startup
 ```
 
-### Update Deployment (Quick)
+### Update Deployment (Quick) - USE THIS FOR UPDATES
 
 ```bash
+cd /var/www/self-custody-tax
+git pull
+npm install
+npm run build
+pm2 restart selfcustodytax
+```
+
+### Fresh Deploy (Only if repo is broken/corrupted)
+
+**WARNING: This deletes .env.local! Back it up first or recreate after.**
+
+```bash
+# Backup env file first!
+cp /var/www/self-custody-tax/.env.local /var/www/.env.local.backup
+
 pm2 delete selfcustodytax
 cd /var/www
 rm -rf self-custody-tax
 git clone https://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@github.com/kiwihodl/self-custody-tax.git
 cd self-custody-tax
+
+# Restore env file
+cp /var/www/.env.local.backup .env.local
+
 npm install
 npm run build
 pm2 start npm --name "selfcustodytax" -- start
