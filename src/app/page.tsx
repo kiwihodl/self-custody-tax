@@ -20,9 +20,9 @@ export default function Home() {
               <Image
                 src="/logo-full.png"
                 alt="Self Custody Tax"
-                width={400}
-                height={100}
-                className="h-20 md:h-28 w-auto"
+                width={320}
+                height={80}
+                className="h-16 md:h-20 w-auto"
                 priority
               />
             </div>
@@ -242,7 +242,7 @@ export default function Home() {
                 <div>
                   <h3 className="text-xl font-semibold mb-3 text-text-primary">Exchange Import</h3>
                   <p className="text-text-secondary leading-relaxed">
-                    Import history from Amber, Coinbase, Kraken, Gemini and more.
+                    Import history from AmberApp, Coinbase, Kraken, Gemini, River, Swan and more.
                     Consolidate all your activity in one place.
                   </p>
                 </div>
@@ -265,7 +265,7 @@ export default function Home() {
               <p className="text-text-secondary text-sm">Cost Basis Methods</p>
             </div>
             <div>
-              <p className="text-4xl font-bold text-primary mb-2">4+</p>
+              <p className="text-4xl font-bold text-primary mb-2">6+</p>
               <p className="text-text-secondary text-sm">Exchanges Supported</p>
             </div>
             <div>

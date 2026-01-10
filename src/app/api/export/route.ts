@@ -14,6 +14,28 @@ export async function GET() {
   }
 
   try {
+    // First check subscription status
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("subscription_tier, has_paid_export_fee")
+      .eq("id", user.id)
+      .single();
+
+    const tier = profile?.subscription_tier || "free";
+    const hasPaidExportFee = profile?.has_paid_export_fee || false;
+
+    // Free tier users must pay the export fee
+    if (tier === "free" && !hasPaidExportFee) {
+      return NextResponse.json(
+        {
+          error: "Export fee required",
+          code: "EXPORT_FEE_REQUIRED",
+          message: "Free plan users need to pay a one-time $21 export fee to download their data."
+        },
+        { status: 402 }
+      );
+    }
+
     // Fetch all user data
     const [walletsResult, transactionsResult, taxLotsResult, profileResult] =
       await Promise.all([

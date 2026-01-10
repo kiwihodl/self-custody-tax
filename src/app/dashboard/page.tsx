@@ -66,12 +66,19 @@ export default function DashboardPage() {
     fetchData();
   }, [fetchData]);
 
-  // Calculate totals by network
+  // Calculate totals by asset category
+  // Bitcoin: standalone category
   const btcWallets = wallets.filter((w) => w.network === "bitcoin");
-  const ethWallets = wallets.filter((w) => w.network === "ethereum");
-
   const btcBalance = btcWallets.reduce((sum, w) => sum + (w.balance || 0), 0);
-  const stablecoinBalance = ethWallets.reduce((sum, w) => sum + (w.balance || 0), 0);
+
+  // Crypto: ETH and other non-Bitcoin, non-stablecoin cryptos
+  // Currently, ETH wallets would be ethereum network but not stablecoin type
+  const cryptoWallets = wallets.filter((w) => w.network === "ethereum" && w.type !== "stablecoin");
+  const cryptoBalance = cryptoWallets.reduce((sum, w) => sum + (w.balance || 0), 0);
+
+  // Stablecoins: USDT/USDC wallets
+  const stablecoinWallets = wallets.filter((w) => w.type === "stablecoin");
+  const stablecoinBalance = stablecoinWallets.reduce((sum, w) => sum + (w.balance || 0), 0);
 
   // Get wallet by ID
   const getWallet = (walletId: string) => {
@@ -134,9 +141,9 @@ export default function DashboardPage() {
         <p className="text-text-secondary mt-1">Your crypto portfolio at a glance</p>
       </div>
 
-      {/* Portfolio Summary */}
+      {/* Portfolio Summary - Asset Categories */}
       <div className="grid md:grid-cols-4 gap-6">
-        {/* Bitcoin Balance */}
+        {/* Bitcoin - Standalone Category */}
         <div className="card group hover:border-primary/30 transition-all duration-300">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -152,7 +159,25 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Stablecoin Balance */}
+        {/* Crypto - ETH and other cryptos (not Bitcoin, not Stablecoins) */}
+        <div className="card group hover:border-purple-500/30 transition-all duration-300">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+              <svg className="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11.944 17.97L4.58 13.62 11.943 24l7.37-10.38-7.372 4.35h.003zM12.056 0L4.69 12.223l7.365 4.354 7.365-4.35L12.056 0z"/>
+              </svg>
+            </div>
+            <p className="text-text-secondary text-sm font-medium">Crypto</p>
+          </div>
+          <p className="text-2xl font-bold font-mono text-text-primary">
+            {cryptoWallets.length > 0 ? `$${cryptoBalance.toFixed(2)}` : "--"}
+          </p>
+          <p className="text-text-muted text-sm mt-2">
+            {cryptoWallets.length > 0 ? `${cryptoWallets.length} wallet${cryptoWallets.length !== 1 ? "s" : ""} (ETH)` : "ETH coming soon"}
+          </p>
+        </div>
+
+        {/* Stablecoins - USDT/USDC */}
         <div className="card group hover:border-info/30 transition-all duration-300">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
@@ -164,7 +189,7 @@ export default function DashboardPage() {
           </div>
           <p className="text-2xl font-bold font-mono text-text-primary">${stablecoinBalance.toFixed(2)}</p>
           <p className="text-text-muted text-sm mt-2">
-            {ethWallets.length} wallet{ethWallets.length !== 1 ? "s" : ""} (USDT/USDC)
+            {stablecoinWallets.length} wallet{stablecoinWallets.length !== 1 ? "s" : ""} (USDT/USDC)
           </p>
         </div>
 
@@ -182,20 +207,6 @@ export default function DashboardPage() {
           <p className="text-text-muted text-sm mt-2">
             {wallets.filter((w) => w.sync_status === "idle").length} synced
           </p>
-        </div>
-
-        {/* Total Transactions */}
-        <div className="card group hover:border-warning/30 transition-all duration-300">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
-              <svg className="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-              </svg>
-            </div>
-            <p className="text-text-secondary text-sm font-medium">Transactions</p>
-          </div>
-          <p className="text-2xl font-bold text-text-primary">{transactions.length > 0 ? `${transactions.length}+` : "0"}</p>
-          <p className="text-text-muted text-sm mt-2">Recent activity</p>
         </div>
       </div>
 
@@ -273,22 +284,30 @@ export default function DashboardPage() {
               >
                 <div className="flex items-center gap-4">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    wallet.network === "bitcoin" ? "bg-primary/10" : "bg-info/10"
+                    wallet.network === "bitcoin"
+                      ? "bg-primary/10"
+                      : wallet.type === "stablecoin"
+                        ? "bg-info/10"
+                        : "bg-purple-500/10"
                   }`}>
                     {wallet.network === "bitcoin" ? (
                       <svg className="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12.5 3.5c-3.6 0-6.5 2.9-6.5 6.5 0 2.6 1.5 4.8 3.7 5.8v4.7c0 .6.4 1 1 1h3.5c.6 0 1-.4 1-1v-4.7c2.2-1 3.8-3.2 3.8-5.8 0-3.6-2.9-6.5-6.5-6.5zm.5 6.5c0 .6-.4 1-1 1s-1-.4-1-1 .4-1 1-1 1 .4 1 1z"/>
                       </svg>
-                    ) : (
+                    ) : wallet.type === "stablecoin" ? (
                       <svg className="w-5 h-5 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M11.944 17.97L4.58 13.62 11.943 24l7.37-10.38-7.372 4.35h.003zM12.056 0L4.69 12.223l7.365 4.354 7.365-4.35L12.056 0z"/>
                       </svg>
                     )}
                   </div>
                   <div>
                     <p className="font-medium text-text-primary">{wallet.name}</p>
                     <p className="text-sm text-text-tertiary capitalize">
-                      {wallet.type.replace("_", " ")} • {wallet.network}
+                      {wallet.type.replace("_", " ")} • {wallet.network === "bitcoin" ? "Bitcoin" : wallet.type === "stablecoin" ? "Stablecoins" : "Crypto"}
                     </p>
                   </div>
                 </div>

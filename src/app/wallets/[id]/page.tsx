@@ -464,7 +464,7 @@ function ImportCSVModal({
   };
 
   const exchangeNames: Record<SupportedExchange, string> = {
-    amber: "Amber App",
+    amber: "AmberApp",
     coinbase: "Coinbase",
     kraken: "Kraken",
     gemini: "Gemini",
@@ -520,7 +520,7 @@ function ImportCSVModal({
           <div className="bg-gray-800/50 p-4 rounded-lg text-sm text-gray-400">
             <p className="font-medium text-gray-300 mb-2">Supported Exchanges</p>
             <ul className="list-disc list-inside space-y-1">
-              <li>Amber App (Australian exchange)</li>
+              <li>AmberApp (Australian exchange)</li>
               <li>Coinbase (Transaction History export)</li>
               <li>Kraken (Ledger export)</li>
               <li>Gemini (Transaction History export)</li>

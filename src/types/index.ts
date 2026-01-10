@@ -155,10 +155,54 @@ export interface Transaction {
 }
 
 // ============================================
+// Asset & Category Types
+// ============================================
+
+// All supported assets
+export type Asset = 'BTC' | 'ETH' | 'USDT' | 'USDC';
+
+// Asset categories for UI grouping
+// - Bitcoin: Standalone (the OG, not grouped with alts)
+// - Crypto: Other cryptocurrencies (ETH, future: SOL, etc.)
+// - Stablecoins: USD-pegged tokens (USDT, USDC)
+export type AssetCategory = 'bitcoin' | 'crypto' | 'stablecoins';
+
+// Helper to get category for an asset
+export function getAssetCategory(asset: Asset): AssetCategory {
+  switch (asset) {
+    case 'BTC':
+      return 'bitcoin';
+    case 'ETH':
+      return 'crypto';
+    case 'USDT':
+    case 'USDC':
+      return 'stablecoins';
+  }
+}
+
+// Helper to get assets in a category
+export function getAssetsInCategory(category: AssetCategory): Asset[] {
+  switch (category) {
+    case 'bitcoin':
+      return ['BTC'];
+    case 'crypto':
+      return ['ETH'];
+    case 'stablecoins':
+      return ['USDT', 'USDC'];
+  }
+}
+
+// Category display info
+export const ASSET_CATEGORY_INFO: Record<AssetCategory, { name: string; color: string; icon: string }> = {
+  bitcoin: { name: 'Bitcoin', color: 'primary', icon: 'bitcoin' },
+  crypto: { name: 'Crypto', color: 'purple', icon: 'ethereum' },
+  stablecoins: { name: 'Stablecoins', color: 'info', icon: 'dollar' },
+};
+
+// ============================================
 // Tax Lot Types
 // ============================================
 
-export type Asset = 'BTC' | 'USDT' | 'USDC';
 export type AcquisitionType = 'purchase' | 'income' | 'gift' | 'mining' | 'interest' | 'airdrop';
 
 export interface TaxLot {

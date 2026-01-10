@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Nav } from "@/components/nav";
+import { SubscriptionTier } from "@/lib/stripe/tiers";
 
 interface UserSettings {
   default_currency: "USD" | "AUD";
@@ -29,8 +30,13 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("free");
+  const [hasPaidExportFee, setHasPaidExportFee] = useState(false);
+  const [showExportPaywall, setShowExportPaywall] = useState(false);
+  const [processingExportFee, setProcessingExportFee] = useState(false);
   const supabase = createClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -44,12 +50,18 @@ export default function SettingsPage() {
 
       const { data: profile } = await supabase
         .from("user_profiles")
-        .select("settings")
+        .select("settings, subscription_tier, has_paid_export_fee")
         .eq("id", user.id)
         .single();
 
       if (profile?.settings) {
         setSettings({ ...DEFAULT_SETTINGS, ...profile.settings });
+      }
+      if (profile?.subscription_tier) {
+        setSubscriptionTier(profile.subscription_tier as SubscriptionTier);
+      }
+      if (profile?.has_paid_export_fee) {
+        setHasPaidExportFee(true);
       }
 
       setLoading(false);
@@ -57,6 +69,29 @@ export default function SettingsPage() {
 
     loadSettings();
   }, [supabase]);
+
+  // Handle export_paid query param (after Stripe checkout)
+  useEffect(() => {
+    const exportPaid = searchParams.get("export_paid");
+    if (exportPaid === "true") {
+      // Confirm payment in database
+      fetch("/api/stripe/export-fee", { method: "PATCH" })
+        .then(() => {
+          setHasPaidExportFee(true);
+          setMessage({ type: "success", text: "Export fee paid! You can now download your data." });
+          // Clean URL
+          router.replace("/settings");
+        })
+        .catch(() => {
+          setMessage({ type: "error", text: "Failed to confirm payment. Please contact support." });
+        });
+    }
+    const exportCanceled = searchParams.get("export_canceled");
+    if (exportCanceled === "true") {
+      setMessage({ type: "error", text: "Export fee payment was canceled." });
+      router.replace("/settings");
+    }
+  }, [searchParams, router]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -96,12 +131,23 @@ export default function SettingsPage() {
   };
 
   const handleExport = async () => {
+    // Check if free tier user needs to pay export fee
+    if (subscriptionTier === "free" && !hasPaidExportFee) {
+      setShowExportPaywall(true);
+      return;
+    }
+
     setExporting(true);
     setMessage(null);
 
     try {
       const response = await fetch("/api/export");
       if (!response.ok) {
+        const data = await response.json();
+        if (data.code === "EXPORT_FEE_REQUIRED") {
+          setShowExportPaywall(true);
+          return;
+        }
         throw new Error("Export failed");
       }
 
@@ -121,6 +167,28 @@ export default function SettingsPage() {
       setMessage({ type: "error", text: "Failed to export data" });
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handlePayExportFee = async () => {
+    setProcessingExportFee(true);
+    try {
+      const response = await fetch("/api/stripe/export-fee", {
+        method: "POST",
+      });
+      const { url, error } = await response.json();
+
+      if (error) {
+        setMessage({ type: "error", text: error });
+        return;
+      }
+
+      window.location.href = url;
+    } catch (err) {
+      console.error("Export fee checkout error:", err);
+      setMessage({ type: "error", text: "Failed to start checkout" });
+    } finally {
+      setProcessingExportFee(false);
     }
   };
 
@@ -404,7 +472,15 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between p-4 bg-bg-elevated rounded-xl">
               <div>
                 <p className="font-medium text-text-primary">Export Data</p>
-                <p className="text-sm text-text-secondary">Download all your wallet and transaction data as JSON</p>
+                <p className="text-sm text-text-secondary">
+                  Download all your wallet and transaction data as JSON
+                  {subscriptionTier === "free" && !hasPaidExportFee && (
+                    <span className="text-warning"> ($21 one-time fee)</span>
+                  )}
+                  {subscriptionTier === "free" && hasPaidExportFee && (
+                    <span className="text-success"> (Paid)</span>
+                  )}
+                </p>
               </div>
               <button
                 onClick={handleExport}
@@ -504,6 +580,68 @@ export default function SettingsPage() {
                       </>
                     ) : (
                       "Delete Forever"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Export Fee Paywall Modal */}
+          {showExportPaywall && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+              <div className="bg-bg-raised border border-border rounded-xl p-6 w-full max-w-md">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-text-primary">Export Your Data</h3>
+                    <p className="text-sm text-text-secondary">One-time fee for Free plan users</p>
+                  </div>
+                </div>
+                <p className="text-text-secondary mb-4">
+                  As a Free plan user, you can view and track your portfolio at no cost.
+                  To download your data for tax filing or backup purposes, a one-time
+                  export fee applies.
+                </p>
+                <div className="bg-bg-elevated rounded-xl p-4 mb-6">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-semibold text-text-primary">Data Export</p>
+                      <p className="text-sm text-text-tertiary">Includes all wallets, transactions, and tax lots</p>
+                    </div>
+                    <p className="text-2xl font-bold text-primary">$21</p>
+                  </div>
+                </div>
+                <p className="text-xs text-text-muted mb-6">
+                  Alternatively, <a href="/pricing" className="text-primary hover:underline">upgrade to a paid plan</a> for
+                  unlimited exports and additional features.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowExportPaywall(false)}
+                    className="flex-1 btn-secondary"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handlePayExportFee}
+                    disabled={processingExportFee}
+                    className="flex-1 btn-primary disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {processingExportFee ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Processing...
+                      </>
+                    ) : (
+                      "Pay $21"
                     )}
                   </button>
                 </div>

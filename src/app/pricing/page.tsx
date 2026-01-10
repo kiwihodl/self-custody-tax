@@ -11,6 +11,7 @@ export default function PricingPage() {
   const [loading, setLoading] = useState<SubscriptionTier | null>(null);
   const [currentTier, setCurrentTier] = useState<SubscriptionTier>("free");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
   const searchParams = useSearchParams();
   const canceled = searchParams.get("canceled");
   const supabase = createClient();
@@ -223,39 +224,50 @@ export default function PricingPage() {
           <h2 className="text-2xl font-bold text-text-primary text-center mb-8">
             Frequently Asked Questions
           </h2>
-          <div className="space-y-4">
-            <div className="card">
-              <h3 className="font-semibold text-text-primary mb-2">
-                Can I change my plan later?
-              </h3>
-              <p className="text-text-secondary text-sm">
-                Yes! You can upgrade or downgrade at any time. When you upgrade,
-                you&apos;ll be charged the prorated difference. Downgrades take
-                effect at the end of your billing cycle.
-              </p>
-            </div>
-            <div className="card">
-              <h3 className="font-semibold text-text-primary mb-2">
-                What happens after the 14-day trial?
-              </h3>
-              <p className="text-text-secondary text-sm">
-                After your trial ends, you&apos;ll be charged for your selected plan.
-                You can cancel anytime during the trial and won&apos;t be charged.
-              </p>
-            </div>
-            <div className="card">
-              <h3 className="font-semibold text-text-primary mb-2">
-                Is my payment information secure?
-              </h3>
-              <p className="text-text-secondary text-sm">
-                Absolutely. We use Stripe for payment processing and never store
-                your card details on our servers.
-              </p>
-            </div>
+          <div className="space-y-2">
+            {[
+              {
+                question: "Can I change my plan later?",
+                answer: "Yes! You can upgrade or downgrade at any time. When you upgrade, you'll be charged the prorated difference. Downgrades take effect at the end of your billing cycle."
+              },
+              {
+                question: "What happens after the 14-day trial?",
+                answer: "After your trial ends, you'll be charged for your selected plan. You can cancel anytime during the trial and won't be charged."
+              },
+              {
+                question: "Is my payment information secure?",
+                answer: "Absolutely. We use Stripe for payment processing and never store your card details on our servers."
+              },
+              {
+                question: "What's included in the Free plan?",
+                answer: "The Free plan includes 1 wallet and up to 50 transactions. You can view and track your portfolio at no cost. To export tax reports, a one-time $21 export fee applies."
+              }
+            ].map((faq, index) => (
+              <div key={index} className="card p-0 overflow-hidden">
+                <button
+                  onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                  className="w-full px-5 py-4 text-left flex justify-between items-center hover:bg-bg-hover transition-colors"
+                >
+                  <span className="font-medium text-text-primary pr-4">{faq.question}</span>
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+                    openFaq === index ? "bg-primary/10 text-primary rotate-45" : "bg-bg-elevated text-text-muted"
+                  }`}>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                  </span>
+                </button>
+                {openFaq === index && (
+                  <div className="px-5 pb-4 text-text-secondary text-sm border-t border-border">
+                    <p className="pt-4">{faq.answer}</p>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Footer */}
+        {/* Sign in link for logged-out users */}
         {!isLoggedIn && (
           <div className="mt-16 text-center text-text-muted text-sm">
             <Link href="/auth/login" className="text-primary hover:text-primary-glow">
@@ -264,6 +276,37 @@ export default function PricingPage() {
           </div>
         )}
       </main>
+
+      {/* Footer */}
+      {!isLoggedIn && (
+        <footer className="border-t border-border py-12 bg-bg-raised/30">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12.5 3.5c-3.6 0-6.5 2.9-6.5 6.5 0 2.6 1.5 4.8 3.7 5.8v4.7c0 .6.4 1 1 1h3.5c.6 0 1-.4 1-1v-4.7c2.2-1 3.8-3.2 3.8-5.8 0-3.6-2.9-6.5-6.5-6.5zm.5 6.5c0 .6-.4 1-1 1s-1-.4-1-1 .4-1 1-1 1 .4 1 1z"/>
+                  </svg>
+                </div>
+                <span className="text-xl font-semibold text-text-primary">
+                  Self Custody Tax
+                </span>
+              </div>
+              <p className="text-text-tertiary text-sm">
+                Crypto tax tracking for self-custody users
+              </p>
+              <div className="flex items-center gap-6 text-text-muted text-sm">
+                <Link href="/" className="hover:text-text-primary transition-colors">Home</Link>
+                <Link href="/help" className="hover:text-text-primary transition-colors">Help</Link>
+                <Link href="/auth/login" className="hover:text-text-primary transition-colors">Sign In</Link>
+              </div>
+            </div>
+            <div className="mt-8 pt-8 border-t border-border text-center text-text-muted text-xs">
+              &copy; {new Date().getFullYear()} Self Custody Tax. All rights reserved.
+            </div>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }

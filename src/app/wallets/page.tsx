@@ -43,7 +43,7 @@ export default function WalletsPage() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-text-primary">Wallets</h1>
-            <p className="text-text-secondary mt-1">Manage your Bitcoin and stablecoin wallets</p>
+            <p className="text-text-secondary mt-1">Manage your Bitcoin, crypto, and stablecoin wallets</p>
           </div>
           <button onClick={() => setShowAddModal(true)} className="btn-primary">
             <span className="flex items-center gap-2">
@@ -178,15 +178,26 @@ function WalletCard({ wallet, onRefresh }: { wallet: Wallet; onRefresh: () => vo
       <div className="flex justify-between items-start mb-4">
         <div className="flex items-start gap-3">
           <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-            wallet.network === "bitcoin" ? "bg-primary/10" : "bg-info/10"
+            wallet.network === "bitcoin"
+              ? "bg-primary/10"
+              : wallet.type === "stablecoin"
+                ? "bg-info/10"
+                : "bg-purple-500/10"
           }`}>
             {wallet.network === "bitcoin" ? (
+              // Bitcoin icon - orange
               <svg className="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12.5 3.5c-3.6 0-6.5 2.9-6.5 6.5 0 2.6 1.5 4.8 3.7 5.8v4.7c0 .6.4 1 1 1h3.5c.6 0 1-.4 1-1v-4.7c2.2-1 3.8-3.2 3.8-5.8 0-3.6-2.9-6.5-6.5-6.5zm.5 6.5c0 .6-.4 1-1 1s-1-.4-1-1 .4-1 1-1 1 .4 1 1z"/>
               </svg>
-            ) : (
+            ) : wallet.type === "stablecoin" ? (
+              // Stablecoin icon - blue
               <svg className="w-5 h-5 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : (
+              // Crypto/ETH icon - purple
+              <svg className="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11.944 17.97L4.58 13.62 11.943 24l7.37-10.38-7.372 4.35h.003zM12.056 0L4.69 12.223l7.365 4.354 7.365-4.35L12.056 0z"/>
               </svg>
             )}
           </div>
@@ -200,7 +211,13 @@ function WalletCard({ wallet, onRefresh }: { wallet: Wallet; onRefresh: () => vo
               )}
             </div>
             <p className="text-sm text-text-tertiary capitalize">
-              {wallet.type.replace("_", " ")} • {wallet.network}
+              {wallet.type.replace("_", " ")} • {
+                wallet.network === "bitcoin"
+                  ? "Bitcoin"
+                  : wallet.type === "stablecoin"
+                    ? "Stablecoin"
+                    : "Crypto"
+              }
             </p>
             {wallet.xpub && !wallet.address && (() => {
               // Always show truncated xpub

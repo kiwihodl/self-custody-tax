@@ -1,7 +1,7 @@
 /**
- * Amber App CSV Parser
+ * AmberApp CSV Parser
  *
- * Parses CSV exports from Amber App (Australian Bitcoin exchange)
+ * Parses CSV exports from AmberApp (Australian Bitcoin exchange)
  *
  * Expected format:
  * Date,Type,Asset,Amount,Fee,Fee Asset,Price,Value
@@ -13,7 +13,7 @@ import type { ExchangeParser, ParsedTransaction } from "../types";
 const AMBER_HEADERS = ["date", "type", "asset", "amount", "fee", "fee asset", "price", "value"];
 
 export const amberParser: ExchangeParser = {
-  name: "Amber App",
+  name: "AmberApp",
 
   detectFormat: (headers: string[]): boolean => {
     const normalizedHeaders = headers.map((h) => h.toLowerCase().trim());

@@ -17,6 +17,7 @@ type Step = "welcome" | "network" | "input" | "syncing" | "complete";
 export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) {
   const [step, setStep] = useState<Step>("welcome");
   const [network, setNetwork] = useState<Network>("bitcoin");
+  const [assetCategory, setAssetCategory] = useState<"bitcoin" | "crypto" | "stablecoin">("bitcoin");
   const [walletName, setWalletName] = useState("");
   const [inputValue, setInputValue] = useState("");
   const [inputType, setInputType] = useState<"address" | "xpub">("address");
@@ -24,8 +25,9 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
   const supabase = createClient();
 
-  const handleNetworkSelect = (selectedNetwork: Network) => {
-    setNetwork(selectedNetwork);
+  const handleCategorySelect = (category: "bitcoin" | "crypto" | "stablecoin") => {
+    setAssetCategory(category);
+    setNetwork(category === "bitcoin" ? "bitcoin" : "ethereum");
     setStep("input");
     // Reset input when switching networks
     setInputValue("");
@@ -95,7 +97,7 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
         return;
       }
 
-      const walletType: WalletType = network === "ethereum" ? "stablecoin" : "single_sig";
+      const walletType: WalletType = assetCategory === "stablecoin" ? "stablecoin" : "single_sig";
 
       const { data: newWallet, error: insertError } = await supabase
         .from("wallets")
@@ -155,7 +157,7 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
             <div>
               <h2 className="text-2xl font-bold mb-2">Welcome to Self Custody Tax</h2>
               <p className="text-gray-400">
-                Track your Bitcoin and stablecoin portfolio with ease.
+                Track your Bitcoin, crypto, and stablecoin portfolio with ease.
                 Let&apos;s get you set up in just a few steps.
               </p>
             </div>
@@ -186,7 +188,7 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
 
             <div className="grid gap-4">
               <button
-                onClick={() => handleNetworkSelect("bitcoin")}
+                onClick={() => handleCategorySelect("bitcoin")}
                 className="p-6 border border-gray-700 rounded-xl hover:border-primary hover:bg-primary/5 transition-all text-left group"
               >
                 <div className="flex items-center gap-4">
@@ -201,15 +203,32 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
               </button>
 
               <button
-                onClick={() => handleNetworkSelect("ethereum")}
-                className="p-6 border border-gray-700 rounded-xl hover:border-primary hover:bg-primary/5 transition-all text-left group"
+                onClick={() => handleCategorySelect("crypto")}
+                className="p-6 border border-gray-700 rounded-xl hover:border-purple-500 hover:bg-purple-500/5 transition-all text-left group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-purple-400" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M11.944 17.97L4.58 13.62 11.943 24l7.37-10.38-7.372 4.35h.003zM12.056 0L4.69 12.223l7.365 4.354 7.365-4.35L12.056 0z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold group-hover:text-purple-400">Crypto</h3>
+                    <p className="text-gray-400 text-sm">Track ETH holdings and transactions</p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleCategorySelect("stablecoin")}
+                className="p-6 border border-gray-700 rounded-xl hover:border-blue-500 hover:bg-blue-500/5 transition-all text-left group"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center">
-                    <span className="text-xl">$</span>
+                    <span className="text-xl text-blue-400">$</span>
                   </div>
                   <div>
-                    <h3 className="font-semibold group-hover:text-primary">Stablecoins</h3>
+                    <h3 className="font-semibold group-hover:text-blue-400">Stablecoins</h3>
                     <p className="text-gray-400 text-sm">Track USDT and USDC on Ethereum</p>
                   </div>
                 </div>
@@ -230,7 +249,7 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
           <div className="space-y-6">
             <div>
               <h2 className="text-xl font-bold mb-2">
-                Add your {network === "bitcoin" ? "Bitcoin" : "Ethereum"} wallet
+                Add your {assetCategory === "bitcoin" ? "Bitcoin" : assetCategory === "crypto" ? "Crypto" : "Stablecoin"} wallet
               </h2>
               <p className="text-gray-400 text-sm">
                 We only need read-only access to track your balance
@@ -253,7 +272,7 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
                   value={walletName}
                   onChange={(e) => setWalletName(e.target.value)}
                   className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                  placeholder={network === "bitcoin" ? "My Cold Storage" : "My Stablecoin Wallet"}
+                  placeholder={assetCategory === "bitcoin" ? "My Cold Storage" : assetCategory === "crypto" ? "My Ethereum Wallet" : "My Stablecoin Wallet"}
                 />
               </div>
 

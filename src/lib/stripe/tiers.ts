@@ -13,7 +13,7 @@ export const SUBSCRIPTION_TIERS = {
       "1 wallet",
       "50 transactions",
       "Basic portfolio view",
-      "Single addresses only",
+      "$21 one-time export fee",
     ],
   },
   holder: {

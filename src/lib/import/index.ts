@@ -82,7 +82,7 @@ export function detectExchange(csvContent: string): SupportedExchange | null {
 
     for (const parser of PARSERS) {
       if (parser.detectFormat(headers)) {
-        if (parser.name === "Amber App") return "amber";
+        if (parser.name === "AmberApp") return "amber";
         if (parser.name === "Coinbase") return "coinbase";
         if (parser.name === "Kraken") return "kraken";
         if (parser.name === "Gemini") return "gemini";
@@ -174,7 +174,7 @@ export async function importCSV(
     // Detect or use specified exchange
     const detectedExchange = exchange || detectExchange(csvContent);
     if (!detectedExchange) {
-      result.errors.push("Could not detect exchange format. Supported: Amber App, Coinbase, Kraken, Gemini, River, Swan Bitcoin");
+      result.errors.push("Could not detect exchange format. Supported: AmberApp, Coinbase, Kraken, Gemini, River, Swan Bitcoin");
       return result;
     }
 
