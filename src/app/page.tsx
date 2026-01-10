@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Home() {
   return (
@@ -12,24 +13,64 @@ export default function Home() {
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse-slow" />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-info/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
           <div className="text-center">
-            {/* Logo with glow */}
-            <div className="mb-8">
-              <h1 className="text-5xl md:text-7xl font-bold tracking-tight">
-                <span className="text-primary drop-shadow-[0_0_30px_rgba(251,220,123,0.5)]">Self Custody</span>
-                <span className="text-text-primary"> Tax</span>
-              </h1>
-              <div className="h-1 w-24 mx-auto mt-4 bg-gradient-to-r from-transparent via-primary to-transparent rounded-full" />
+            {/* Logo */}
+            <div className="mb-8 flex justify-center">
+              <Image
+                src="/logo-full.png"
+                alt="Self Custody Tax"
+                width={400}
+                height={100}
+                className="h-20 md:h-28 w-auto"
+                priority
+              />
             </div>
 
             {/* Tagline */}
-            <p className="text-xl md:text-2xl text-text-secondary mb-12 max-w-2xl mx-auto font-light">
-              Bitcoin tax tracking for self-custody users
+            <p className="text-xl md:text-2xl text-text-secondary mb-6 max-w-2xl mx-auto font-light">
+              Crypto tax tracking for self-custody users
             </p>
 
+            {/* Problem Statement */}
+            <p className="text-lg text-text-tertiary mb-12 max-w-3xl mx-auto">
+              Tired of spreadsheets and guessing your cost basis? Self Custody Tax automatically tracks your wallets, calculates gains, and generates IRS-ready reports.
+            </p>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+              <Link href="/auth/signup" className="btn-primary text-lg px-10 py-4 shadow-glow">
+                Start Free Trial
+              </Link>
+              <Link href="/pricing" className="btn-secondary text-lg px-10 py-4">
+                View Pricing
+              </Link>
+            </div>
+
+            {/* Trust Signals */}
+            <div className="flex flex-wrap justify-center gap-6 text-text-muted text-sm mb-16">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-success" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>No credit card required</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-success" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>Watch-only (keys never leave your device)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-success" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span>14-day free trial on all plans</span>
+              </div>
+            </div>
+
             {/* Value Props */}
-            <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto mb-16">
+            <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
               <div className="glass rounded-xl p-6 group hover:border-primary/30 transition-all duration-300 hover:shadow-glow">
                 <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 mx-auto group-hover:bg-primary/20 transition-colors">
                   <svg className="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -52,10 +93,10 @@ export default function Home() {
                   </svg>
                 </div>
                 <h3 className="text-lg font-semibold mb-2 text-text-primary">
-                  UTXO Cost Basis
+                  Accurate Cost Basis
                 </h3>
                 <p className="text-text-tertiary text-sm leading-relaxed">
-                  Per-output tracking for maximum tax accuracy. FIFO, LIFO, HIFO
+                  UTXO-level tracking for maximum accuracy. FIFO, LIFO, HIFO
                   methods supported.
                 </p>
               </div>
@@ -67,38 +108,66 @@ export default function Home() {
                   </svg>
                 </div>
                 <h3 className="text-lg font-semibold mb-2 text-text-primary">
-                  Internal Transfers
+                  Smart Transfer Detection
                 </h3>
                 <p className="text-text-tertiary text-sm leading-relaxed">
-                  Auto-detect moves between your own wallets. No more phantom
+                  Auto-detect moves between your wallets. No more phantom
                   taxable events.
                 </p>
               </div>
             </div>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/auth/signup" className="btn-primary text-lg px-10 py-4 shadow-glow">
-                Get Started Free
-              </Link>
-              <Link
-                href="/auth/login"
-                className="btn-secondary text-lg px-10 py-4"
-              >
-                Sign In
-              </Link>
-            </div>
-
-            {/* Social Proof */}
-            <p className="text-text-muted text-sm mt-10">
-              Free tier includes 3 wallets and 100 transactions
-            </p>
           </div>
         </div>
       </div>
 
+      {/* How It Works Section */}
+      <section className="py-24 relative bg-bg-raised/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-text-primary mb-4">
+              How It Works
+            </h2>
+            <p className="text-text-secondary max-w-2xl mx-auto">
+              Get your crypto taxes sorted in three simple steps
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center mx-auto mb-6">
+                <span className="text-2xl font-bold text-primary">1</span>
+              </div>
+              <h3 className="text-xl font-semibold text-text-primary mb-3">Connect Wallets</h3>
+              <p className="text-text-secondary">
+                Add your xpub, zpub, or wallet address. We only need read access - your keys stay with you.
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center mx-auto mb-6">
+                <span className="text-2xl font-bold text-primary">2</span>
+              </div>
+              <h3 className="text-xl font-semibold text-text-primary mb-3">Auto-Sync History</h3>
+              <p className="text-text-secondary">
+                We fetch your complete transaction history and calculate cost basis automatically.
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center mx-auto mb-6">
+                <span className="text-2xl font-bold text-primary">3</span>
+              </div>
+              <h3 className="text-xl font-semibold text-text-primary mb-3">Export Tax Reports</h3>
+              <p className="text-text-secondary">
+                Download IRS Form 8949, CSV, or TurboTax format. Ready for your accountant.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Features Section */}
-      <section className="py-32 relative">
+      <section className="py-24 relative">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-bg-raised/50 to-transparent" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -123,8 +192,7 @@ export default function Home() {
                   <h3 className="text-xl font-semibold mb-3 text-text-primary">Watch-Only Security</h3>
                   <p className="text-text-secondary leading-relaxed">
                     We only use extended public keys (xpubs). Your private keys never
-                    leave your hardware wallet. Track everything without compromising
-                    security.
+                    leave your hardware wallet. Track everything without risk.
                   </p>
                 </div>
               </div>
@@ -138,10 +206,10 @@ export default function Home() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-3 text-text-primary">Tax Report Generation</h3>
+                  <h3 className="text-xl font-semibold mb-3 text-text-primary">IRS Form 8949 Ready</h3>
                   <p className="text-text-secondary leading-relaxed">
-                    Generate IRS Form 8949 with accurate cost basis calculations.
-                    Download CSV or TurboTax format. Designed for long-term holders.
+                    Generate complete tax reports with accurate cost basis.
+                    Download CSV, TurboTax, or hand directly to your accountant.
                   </p>
                 </div>
               </div>
@@ -155,9 +223,9 @@ export default function Home() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-3 text-text-primary">Stablecoin Support</h3>
+                  <h3 className="text-xl font-semibold mb-3 text-text-primary">Multi-Asset Support</h3>
                   <p className="text-text-secondary leading-relaxed">
-                    Track USDT and USDC alongside your Bitcoin. Combined portfolio
+                    Track Bitcoin, Ethereum, USDT, and USDC. Combined portfolio
                     view with accurate accounting for each asset.
                   </p>
                 </div>
@@ -174,7 +242,7 @@ export default function Home() {
                 <div>
                   <h3 className="text-xl font-semibold mb-3 text-text-primary">Exchange Import</h3>
                   <p className="text-text-secondary leading-relaxed">
-                    Import transaction history from Amber, Coinbase, Kraken, and more.
+                    Import history from Amber, Coinbase, Kraken, Gemini and more.
                     Consolidate all your activity in one place.
                   </p>
                 </div>
@@ -184,13 +252,37 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Social Proof / Stats */}
+      <section className="py-16 bg-bg-raised/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            <div>
+              <p className="text-4xl font-bold text-primary mb-2">100%</p>
+              <p className="text-text-secondary text-sm">Watch-Only Security</p>
+            </div>
+            <div>
+              <p className="text-4xl font-bold text-primary mb-2">3</p>
+              <p className="text-text-secondary text-sm">Cost Basis Methods</p>
+            </div>
+            <div>
+              <p className="text-4xl font-bold text-primary mb-2">4+</p>
+              <p className="text-text-secondary text-sm">Exchanges Supported</p>
+            </div>
+            <div>
+              <p className="text-4xl font-bold text-primary mb-2">24/7</p>
+              <p className="text-text-secondary text-sm">Auto-Sync</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Pricing Preview */}
-      <section className="py-32 relative">
+      <section className="py-24 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-text-primary mb-4">Simple Pricing</h2>
             <p className="text-text-secondary max-w-2xl mx-auto">
-              Start free, upgrade when you need more wallets or multisig support.
+              Start free, upgrade when you need more wallets or advanced features.
             </p>
           </div>
 
@@ -203,8 +295,8 @@ export default function Home() {
               <p className="text-4xl font-bold text-text-primary mb-2">$0</p>
               <p className="text-text-muted text-sm mb-6">forever</p>
               <div className="space-y-3 text-sm text-text-secondary">
-                <p>3 wallets</p>
-                <p>100 transactions</p>
+                <p>1 wallet</p>
+                <p>50 transactions</p>
                 <p>Basic reports</p>
               </div>
             </div>
@@ -221,7 +313,7 @@ export default function Home() {
               <div className="space-y-3 text-sm text-text-secondary">
                 <p>10 wallets</p>
                 <p>Unlimited transactions</p>
-                <p>Tax reports</p>
+                <p>Full tax reports</p>
               </div>
             </div>
 
@@ -265,6 +357,33 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          <div className="text-center mt-12">
+            <Link href="/pricing" className="btn-primary px-8 py-3">
+              Compare All Plans
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="py-24 relative">
+        <div className="absolute inset-0 mesh-gradient opacity-50" />
+        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-4xl font-bold text-text-primary mb-6">
+            Ready to simplify your crypto taxes?
+          </h2>
+          <p className="text-xl text-text-secondary mb-10">
+            Join self-custody users who trust Self Custody Tax for accurate, IRS-ready reporting.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/auth/signup" className="btn-primary text-lg px-10 py-4 shadow-glow">
+              Start Free Trial
+            </Link>
+            <Link href="/help" className="btn-secondary text-lg px-10 py-4">
+              Learn More
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -273,22 +392,28 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <svg className="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12.5 3.5c-3.6 0-6.5 2.9-6.5 6.5 0 2.6 1.5 4.8 3.7 5.8v4.7c0 .6.4 1 1 1h3.5c.6 0 1-.4 1-1v-4.7c2.2-1 3.8-3.2 3.8-5.8 0-3.6-2.9-6.5-6.5-6.5zm.5 6.5c0 .6-.4 1-1 1s-1-.4-1-1 .4-1 1-1 1 .4 1 1z"/>
-                </svg>
-              </div>
-              <span className="text-2xl font-bold tracking-tight">
-                <span className="text-primary">SCT</span>
+              <Image
+                src="/logo-icon.png"
+                alt="Self Custody Tax"
+                width={40}
+                height={40}
+                className="w-10 h-10"
+              />
+              <span className="text-xl font-semibold text-text-primary">
+                Self Custody Tax
               </span>
             </div>
             <p className="text-text-tertiary text-sm">
-              Bitcoin tax tracking for self-custody users
+              Crypto tax tracking for self-custody users
             </p>
             <div className="flex items-center gap-6 text-text-muted text-sm">
+              <Link href="/pricing" className="hover:text-text-primary transition-colors">Pricing</Link>
               <Link href="/help" className="hover:text-text-primary transition-colors">Help</Link>
-              <Link href="/settings" className="hover:text-text-primary transition-colors">Settings</Link>
+              <Link href="/auth/login" className="hover:text-text-primary transition-colors">Sign In</Link>
             </div>
+          </div>
+          <div className="mt-8 pt-8 border-t border-border text-center text-text-muted text-xs">
+            &copy; {new Date().getFullYear()} Self Custody Tax. All rights reserved.
           </div>
         </div>
       </footer>

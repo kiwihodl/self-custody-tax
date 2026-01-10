@@ -6,12 +6,12 @@ export const SUBSCRIPTION_TIERS = {
     name: "Free",
     price: 0,
     limits: {
-      wallets: 3,
-      transactions: 100,
+      wallets: 1,
+      transactions: 50,
     },
     features: [
-      "3 wallets",
-      "100 transactions",
+      "1 wallet",
+      "50 transactions",
       "Basic portfolio view",
       "Single addresses only",
     ],
