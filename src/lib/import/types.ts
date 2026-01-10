@@ -31,4 +31,4 @@ export interface ExchangeParser {
   parse: (rows: string[][], headers: string[]) => ParsedTransaction[];
 }
 
-export type SupportedExchange = "amber" | "coinbase" | "kraken" | "gemini";
+export type SupportedExchange = "amber" | "coinbase" | "kraken" | "gemini" | "river" | "swan";

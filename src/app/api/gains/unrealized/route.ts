@@ -17,6 +17,8 @@ export interface UnrealizedLot {
   unrealizedGainLossPercent: number;
   holdingPeriod: number; // days
   isLongTerm: boolean;
+  isCostBasisOverride: boolean;
+  costBasisNotes?: string;
 }
 
 export interface UnrealizedGainsSummary {
@@ -128,6 +130,8 @@ export async function GET() {
         unrealizedGainLossPercent: unrealizedPercent,
         holdingPeriod,
         isLongTerm,
+        isCostBasisOverride: lot.is_cost_basis_override || false,
+        costBasisNotes: lot.cost_basis_notes,
       };
     });
 

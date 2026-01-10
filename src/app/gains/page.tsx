@@ -17,6 +17,8 @@ interface UnrealizedLot {
   unrealizedGainLossPercent: number;
   holdingPeriod: number;
   isLongTerm: boolean;
+  isCostBasisOverride?: boolean;
+  costBasisNotes?: string;
 }
 
 interface UnrealizedGainsSummary {
@@ -41,6 +43,9 @@ export default function GainsPage() {
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortAsc, setSortAsc] = useState(true);
   const [filterTerm, setFilterTerm] = useState<FilterTerm>("all");
+  const [editingLotId, setEditingLotId] = useState<string | null>(null);
+  const [editingPrice, setEditingPrice] = useState<string>("");
+  const [savingLotId, setSavingLotId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -66,6 +71,58 @@ export default function GainsPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const handleEditCostBasis = (lot: UnrealizedLot) => {
+    setEditingLotId(lot.id);
+    setEditingPrice(lot.acquisitionPriceUsd.toString());
+  };
+
+  const handleSaveCostBasis = async (lotId: string) => {
+    const newPrice = parseFloat(editingPrice);
+    if (isNaN(newPrice) || newPrice < 0) {
+      setError("Invalid price value");
+      return;
+    }
+
+    setSavingLotId(lotId);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/tax-lots/${lotId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acquisition_price_usd: newPrice }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json();
+        setError(json.error || "Failed to update cost basis");
+        return;
+      }
+
+      // Refresh data to get updated calculations
+      await fetchData();
+      setEditingLotId(null);
+      setEditingPrice("");
+    } catch {
+      setError("Failed to update cost basis");
+    } finally {
+      setSavingLotId(null);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingLotId(null);
+    setEditingPrice("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, lotId: string) => {
+    if (e.key === "Enter") {
+      handleSaveCostBasis(lotId);
+    } else if (e.key === "Escape") {
+      handleCancelEdit();
+    }
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -467,8 +524,62 @@ export default function GainsPage() {
                           <td className="text-right font-mono text-text-primary">
                             {formatBtc(lot.amount)}
                           </td>
-                          <td className="text-right font-mono text-text-secondary">
-                            {formatCurrency(lot.costBasisUsd)}
+                          <td className="text-right">
+                            {editingLotId === lot.id ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <span className="text-text-muted">$</span>
+                                <input
+                                  type="number"
+                                  value={editingPrice}
+                                  onChange={(e) => setEditingPrice(e.target.value)}
+                                  onKeyDown={(e) => handleKeyDown(e, lot.id)}
+                                  className="input w-24 text-right font-mono py-1 px-2"
+                                  autoFocus
+                                  disabled={savingLotId === lot.id}
+                                />
+                                <button
+                                  onClick={() => handleSaveCostBasis(lot.id)}
+                                  disabled={savingLotId === lot.id}
+                                  className="p-1 text-success hover:bg-success/10 rounded"
+                                  title="Save"
+                                >
+                                  {savingLotId === lot.id ? (
+                                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                </button>
+                                <button
+                                  onClick={handleCancelEdit}
+                                  disabled={savingLotId === lot.id}
+                                  className="p-1 text-error hover:bg-error/10 rounded"
+                                  title="Cancel"
+                                >
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleEditCostBasis(lot)}
+                                className="group inline-flex items-center gap-1 font-mono text-text-secondary hover:text-text-primary transition-colors"
+                                title="Click to edit cost basis"
+                              >
+                                {formatCurrency(lot.costBasisUsd)}
+                                {lot.isCostBasisOverride && (
+                                  <span className="badge badge-warning text-xs py-0">Override</span>
+                                )}
+                                <svg className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </button>
+                            )}
                           </td>
                           <td className="text-right font-mono text-text-primary">
                             {formatCurrency(lot.currentValueUsd)}

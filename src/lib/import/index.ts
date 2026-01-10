@@ -11,10 +11,12 @@ import { amberParser } from "./parsers/amber";
 import { coinbaseParser } from "./parsers/coinbase";
 import { krakenParser } from "./parsers/kraken";
 import { geminiParser } from "./parsers/gemini";
+import { riverParser } from "./parsers/river";
+import { swanParser } from "./parsers/swan";
 import { fetchPrice } from "@/lib/prices/client";
 
 // Register all parsers
-const PARSERS: ExchangeParser[] = [amberParser, coinbaseParser, krakenParser, geminiParser];
+const PARSERS: ExchangeParser[] = [amberParser, coinbaseParser, krakenParser, geminiParser, riverParser, swanParser];
 
 /**
  * Parse CSV string into rows
@@ -84,6 +86,8 @@ export function detectExchange(csvContent: string): SupportedExchange | null {
         if (parser.name === "Coinbase") return "coinbase";
         if (parser.name === "Kraken") return "kraken";
         if (parser.name === "Gemini") return "gemini";
+        if (parser.name === "River") return "river";
+        if (parser.name === "Swan Bitcoin") return "swan";
       }
     }
 
@@ -106,6 +110,10 @@ function getParser(exchange: SupportedExchange): ExchangeParser | null {
       return krakenParser;
     case "gemini":
       return geminiParser;
+    case "river":
+      return riverParser;
+    case "swan":
+      return swanParser;
     default:
       return null;
   }
@@ -166,7 +174,7 @@ export async function importCSV(
     // Detect or use specified exchange
     const detectedExchange = exchange || detectExchange(csvContent);
     if (!detectedExchange) {
-      result.errors.push("Could not detect exchange format. Supported: Amber App, Coinbase");
+      result.errors.push("Could not detect exchange format. Supported: Amber App, Coinbase, Kraken, Gemini, River, Swan Bitcoin");
       return result;
     }
 
@@ -318,4 +326,4 @@ export async function importCSV(
 
 // Export types and parsers
 export type { ParsedTransaction, ImportResult, SupportedExchange };
-export { amberParser, coinbaseParser };
+export { amberParser, coinbaseParser, krakenParser, geminiParser, riverParser, swanParser };

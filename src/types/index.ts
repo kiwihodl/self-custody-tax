@@ -181,6 +181,12 @@ export interface TaxLot {
   cost_basis_usd: number;
   acquisition_type: AcquisitionType;
 
+  // Cost basis override (for manual corrections)
+  is_cost_basis_override?: boolean;
+  cost_basis_notes?: string;
+  original_acquisition_price_usd?: number;
+  original_cost_basis_usd?: number;
+
   // Disposal (if sold/spent)
   is_disposed: boolean;
   disposal_date?: string;

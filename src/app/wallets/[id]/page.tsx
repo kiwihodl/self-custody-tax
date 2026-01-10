@@ -468,6 +468,8 @@ function ImportCSVModal({
     coinbase: "Coinbase",
     kraken: "Kraken",
     gemini: "Gemini",
+    river: "River",
+    swan: "Swan Bitcoin",
   };
 
   return (
@@ -522,6 +524,8 @@ function ImportCSVModal({
               <li>Coinbase (Transaction History export)</li>
               <li>Kraken (Ledger export)</li>
               <li>Gemini (Transaction History export)</li>
+              <li>River (Account Activity CSV)</li>
+              <li>Swan Bitcoin (Deposits/Purchases CSV)</li>
             </ul>
             <p className="mt-3 text-xs">
               Only {wallet.network === "bitcoin" ? "BTC" : "USDT/USDC"} transactions will be imported.
