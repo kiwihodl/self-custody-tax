@@ -117,12 +117,17 @@ pm2 startup
 ### Update Deployment (Quick)
 
 ```bash
-cd /var/www/self-custody-tax
-git pull
+pm2 delete selfcustodytax
+cd /var/www
+rm -rf self-custody-tax
+git clone https://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@github.com/kiwihodl/self-custody-tax.git
+cd self-custody-tax
 npm install
 npm run build
-pm2 restart selfcustodytax
+pm2 start npm --name "selfcustodytax" -- start
 ```
+
+Use `--update-env` with pm2 restart if only updating environment variables.
 
 ### Monitoring
 
