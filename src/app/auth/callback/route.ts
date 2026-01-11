@@ -1,6 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import type { EmailOtpType } from "@supabase/supabase-js";
 
 export async function GET(request: Request) {
@@ -16,7 +16,35 @@ export async function GET(request: Request) {
   const protocol = headersList.get("x-forwarded-proto") || "https";
   const origin = `${protocol}://${host}`;
 
-  const supabase = await createClient();
+  // Determine redirect URL
+  let redirectTo = `${origin}${next}`;
+  if (token_hash && type && (type === "signup" || type === "email")) {
+    redirectTo = `${origin}/auth/confirmed`;
+  }
+
+  // Create response first so we can attach cookies to it
+  const response = NextResponse.redirect(redirectTo);
+
+  // Get cookies for reading
+  const cookieStore = await cookies();
+
+  // Create Supabase client that writes cookies to the response
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
 
   // Handle email confirmation (token_hash flow)
   if (token_hash && type) {
@@ -26,12 +54,7 @@ export async function GET(request: Request) {
     });
 
     if (!error) {
-      // Email confirmed and user is now logged in
-      // For new signups, show welcome page; otherwise go to dashboard
-      if (type === "signup" || type === "email") {
-        return NextResponse.redirect(`${origin}/auth/confirmed`);
-      }
-      return NextResponse.redirect(`${origin}${next}`);
+      return response;
     }
   }
 
@@ -39,7 +62,7 @@ export async function GET(request: Request) {
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
+      return response;
     }
   }
 
