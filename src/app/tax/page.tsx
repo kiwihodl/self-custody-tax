@@ -168,7 +168,7 @@ export default function TaxPage() {
 
       const { formatTransactionsCSV } = await import("@/lib/tax/reporting");
       const csv = formatTransactionsCSV(lots as TaxLot[]);
-      downloadCSV(csv, `satsat-tax-lots-${year}.csv`);
+      downloadCSV(csv, `selfcustodytax-lots-${year}.csv`);
       setMessage({ type: "success", text: `Exported ${lots.length} tax lots to CSV` });
     } catch (err) {
       console.error("Failed to export CSV:", err);

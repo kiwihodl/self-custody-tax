@@ -10,8 +10,12 @@ export async function GET(request: Request) {
   const type = searchParams.get("type") as EmailOtpType | null;
   const next = searchParams.get("next");
 
+  // Log all params for debugging
+  console.log("[AUTH CALLBACK] Params:", { code: code?.slice(0, 20) + "...", token_hash: token_hash?.slice(0, 20), type, next });
+
   // Use NEXT_PUBLIC_APP_URL for reliable origin behind Cloudflare
   const origin = process.env.NEXT_PUBLIC_APP_URL || "https://selfcustodytax.com";
+  console.log("[AUTH CALLBACK] Origin:", origin);
 
   // Get cookies for reading
   const cookieStore = await cookies();

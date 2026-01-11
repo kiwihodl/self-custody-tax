@@ -1,4 +1,4 @@
-// SatsAt Core Types
+// Self Custody Tax Core Types
 // Based on ROADMAP.md specification
 
 // ============================================

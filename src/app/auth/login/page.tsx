@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
@@ -42,16 +43,24 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-10">
           <Link href="/" className="inline-flex flex-col items-center group">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                <svg className="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12.5 3.5c-3.6 0-6.5 2.9-6.5 6.5 0 2.6 1.5 4.8 3.7 5.8v4.7c0 .6.4 1 1 1h3.5c.6 0 1-.4 1-1v-4.7c2.2-1 3.8-3.2 3.8-5.8 0-3.6-2.9-6.5-6.5-6.5zm.5 6.5c0 .6-.4 1-1 1s-1-.4-1-1 .4-1 1-1 1 .4 1 1z"/>
-                </svg>
-              </div>
-              <span className="text-4xl font-bold tracking-tight">
-                <span className="text-primary">SCT</span>
-              </span>
-            </div>
+            <Image
+              src="/logo-icon.png"
+              alt="Self Custody Tax"
+              width={56}
+              height={56}
+              className="mb-3"
+            />
+            <h1
+              className="text-2xl font-bold"
+              style={{
+                background: 'linear-gradient(180deg, #FBDC7B 0%, #D4B85A 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              SELF CUSTODY TAX
+            </h1>
           </Link>
           <p className="text-text-secondary mt-3">Sign in to your account</p>
         </div>
