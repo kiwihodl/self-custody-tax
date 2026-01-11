@@ -158,8 +158,12 @@ export default function WalletDetailPage() {
   };
 
   const truncateTxid = (txid: string) => {
-    return `${txid.slice(0, 8)}...${txid.slice(-8)}`;
+    return `${txid.slice(0, 4)}…${txid.slice(-4)}`;
   };
+
+  // Determine if Import CSV should be shown
+  // Hide for wallets that already have on-chain data (xpub or address)
+  const showImportCSV = !wallet?.xpub && !wallet?.address;
 
   if (loading) {
     return (
@@ -199,12 +203,14 @@ export default function WalletDetailPage() {
             >
               {syncing ? "Syncing..." : "Sync Now"}
             </button>
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="btn-secondary"
-            >
-              Import CSV
-            </button>
+            {showImportCSV && (
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="btn-secondary"
+              >
+                Import CSV
+              </button>
+            )}
             <button
               onClick={handleDelete}
               className="btn-secondary text-red-400 hover:text-red-300"
@@ -328,27 +334,28 @@ export default function WalletDetailPage() {
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full table-fixed">
                 <thead>
                   <tr className="text-left text-gray-400 text-sm border-b border-gray-800">
-                    <th className="pb-3">Type</th>
-                    <th className="pb-3">Amount</th>
-                    <th className="pb-3">Transaction ID</th>
-                    <th className="pb-3">Block</th>
-                    <th className="pb-3">Date</th>
+                    <th className="pb-3 w-20">Type</th>
+                    <th className="pb-3 w-40">Amount</th>
+                    <th className="pb-3 w-28">Transaction ID</th>
+                    <th className="pb-3 w-20">Block</th>
+                    <th className="pb-3 w-24">Date</th>
                   </tr>
                 </thead>
                 <tbody>
                   {transactions.map((tx) => (
                     <tr key={tx.id} className="border-b border-gray-800/50">
                       <td className="py-3 capitalize">{tx.category}</td>
-                      <td className="py-3 font-mono">{formatAmount(tx.amount, tx.category)}</td>
+                      <td className="py-3 font-mono whitespace-nowrap">{formatAmount(tx.amount, tx.category)}</td>
                       <td className="py-3">
                         <a
                           href={getExplorerUrl("tx", tx.txid)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-mono text-sm text-primary hover:underline"
+                          title={tx.txid}
                         >
                           {truncateTxid(tx.txid)}
                         </a>
@@ -356,7 +363,7 @@ export default function WalletDetailPage() {
                       <td className="py-3 text-gray-400">
                         {tx.block_height || "Pending"}
                       </td>
-                      <td className="py-3 text-gray-400 text-sm">
+                      <td className="py-3 text-gray-400 text-sm whitespace-nowrap">
                         {tx.block_timestamp
                           ? new Date(tx.block_timestamp).toLocaleDateString()
                           : "Pending"}

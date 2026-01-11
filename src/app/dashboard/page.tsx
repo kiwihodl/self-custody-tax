@@ -142,7 +142,10 @@ export default function DashboardPage() {
       {/* Portfolio Summary - Asset Categories */}
       <div className="grid md:grid-cols-4 gap-6">
         {/* Bitcoin - Standalone Category */}
-        <div className="card group hover:border-primary/30 transition-all duration-300">
+        <a
+          href="/wallets?filter=bitcoin"
+          className="card group hover:border-primary/30 transition-all duration-300 cursor-pointer"
+        >
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
               <svg className="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="currentColor">
@@ -155,10 +158,13 @@ export default function DashboardPage() {
           <p className="text-text-muted text-sm mt-2">
             {btcWallets.length} wallet{btcWallets.length !== 1 ? "s" : ""}
           </p>
-        </div>
+        </a>
 
         {/* Crypto - ETH and other cryptos (not Bitcoin, not Stablecoins) */}
-        <div className="card group hover:border-purple-500/30 transition-all duration-300">
+        <a
+          href="/wallets?filter=crypto"
+          className="card group hover:border-purple-500/30 transition-all duration-300 cursor-pointer"
+        >
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
               <svg className="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="currentColor">
@@ -173,10 +179,13 @@ export default function DashboardPage() {
           <p className="text-text-muted text-sm mt-2">
             {cryptoWallets.length} wallet{cryptoWallets.length !== 1 ? "s" : ""} (ETH)
           </p>
-        </div>
+        </a>
 
         {/* Stablecoins - USDT/USDC */}
-        <div className="card group hover:border-info/30 transition-all duration-300">
+        <a
+          href="/wallets?filter=stablecoin"
+          className="card group hover:border-info/30 transition-all duration-300 cursor-pointer"
+        >
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
               <svg className="w-5 h-5 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -189,10 +198,13 @@ export default function DashboardPage() {
           <p className="text-text-muted text-sm mt-2">
             {stablecoinWallets.length} wallet{stablecoinWallets.length !== 1 ? "s" : ""} (USDT/USDC)
           </p>
-        </div>
+        </a>
 
         {/* Total Wallets */}
-        <div className="card group hover:border-success/30 transition-all duration-300">
+        <a
+          href="/wallets"
+          className="card group hover:border-success/30 transition-all duration-300 cursor-pointer"
+        >
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
               <svg className="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -205,7 +217,7 @@ export default function DashboardPage() {
           <p className="text-text-muted text-sm mt-2">
             {wallets.filter((w) => w.sync_status === "idle").length} synced
           </p>
-        </div>
+        </a>
       </div>
 
       {/* Quick Actions - only show if no wallets */}
@@ -273,8 +285,8 @@ export default function DashboardPage() {
             </a>
           </div>
         ) : (
-          <div className="space-y-2">
-            {wallets.slice(0, 5).map((wallet) => (
+          <div className="max-h-[180px] overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+            {wallets.slice(0, 2).map((wallet) => (
               <a
                 key={wallet.id}
                 href={`/wallets/${wallet.id}`}
@@ -325,11 +337,6 @@ export default function DashboardPage() {
                 </div>
               </a>
             ))}
-            {wallets.length > 5 && (
-              <p className="text-center text-text-muted text-sm pt-4">
-                +{wallets.length - 5} more wallets
-              </p>
-            )}
           </div>
         )}
       </div>
@@ -359,8 +366,8 @@ export default function DashboardPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {transactions.map((tx) => {
+          <div className="max-h-[180px] overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+            {transactions.slice(0, 2).map((tx) => {
               const wallet = getWallet(tx.wallet_id);
               const network = tx.network || wallet?.network || "bitcoin";
               return (
@@ -395,7 +402,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-mono text-sm">
+                    <p className="font-mono text-sm whitespace-nowrap">
                       {formatAmount(tx.amount, tx.category, network as "bitcoin" | "ethereum")}
                     </p>
                     <p className="text-xs text-text-muted">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Nav } from "@/components/nav";
 import { syncWalletClient } from "@/lib/bitcoin/clientSync";
@@ -8,11 +9,36 @@ import { syncEthereumWalletClient } from "@/lib/ethereum/clientSync";
 import { SubscriptionTier, checkLimits } from "@/lib/stripe/tiers";
 import type { Wallet, WalletType, Network, MultisigConfig } from "@/types";
 
+type WalletFilter = "bitcoin" | "crypto" | "stablecoin" | null;
+
 export default function WalletsPage() {
+  const searchParams = useSearchParams();
+  const filterParam = searchParams.get("filter") as WalletFilter;
+
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const supabase = createClient();
+
+  // Sort wallets based on filter - filtered type comes first
+  const sortedWallets = [...wallets].sort((a, b) => {
+    if (!filterParam) return 0;
+
+    const getScore = (w: Wallet) => {
+      if (filterParam === "bitcoin" && w.network === "bitcoin") return 0;
+      if (filterParam === "crypto" && w.network === "ethereum" && w.type !== "stablecoin") return 0;
+      if (filterParam === "stablecoin" && w.type === "stablecoin") return 0;
+      return 1;
+    };
+
+    const scoreA = getScore(a);
+    const scoreB = getScore(b);
+
+    if (scoreA !== scoreB) return scoreA - scoreB;
+
+    // Secondary sort: alphabetically by name
+    return a.name.localeCompare(b.name);
+  });
 
   const fetchWallets = useCallback(async () => {
     const { data, error } = await supabase
@@ -40,14 +66,10 @@ export default function WalletsPage() {
       <Nav />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-text-primary">Wallets</h1>
-            <p className="text-text-secondary mt-1">Manage your Bitcoin, crypto, and stablecoin wallets</p>
-          </div>
-          <button onClick={() => setShowAddModal(true)} className="btn-primary">
+        <div className="flex justify-end mb-8">
+          <button onClick={() => setShowAddModal(true)} className="btn-primary px-6 py-3 text-base">
             <span className="flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
               Add Wallet
@@ -83,7 +105,7 @@ export default function WalletsPage() {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {wallets.map((wallet) => (
+            {sortedWallets.map((wallet) => (
               <WalletCard key={wallet.id} wallet={wallet} onRefresh={fetchWallets} />
             ))}
           </div>
