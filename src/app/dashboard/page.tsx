@@ -29,6 +29,9 @@ export default function DashboardPage() {
   const supabase = createClient();
 
   const fetchData = useCallback(async () => {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+
     // Fetch wallets
     const { data: walletData } = await supabase
       .from("wallets")
@@ -39,9 +42,10 @@ export default function DashboardPage() {
     if (walletData) {
       setWallets(walletData);
 
-      // Check if onboarding should be shown (no wallets + hasn't been dismissed)
-      if (walletData.length === 0) {
-        const dismissed = localStorage.getItem("onboarding_dismissed");
+      // Check if onboarding should be shown (no wallets + hasn't been dismissed for THIS user)
+      if (walletData.length === 0 && user) {
+        const dismissKey = `onboarding_dismissed_${user.id}`;
+        const dismissed = localStorage.getItem(dismissKey);
         if (!dismissed) {
           setShowOnboarding(true);
         }
@@ -410,13 +414,22 @@ export default function DashboardPage() {
       {/* Onboarding Wizard */}
       {showOnboarding && (
         <OnboardingWizard
-          onComplete={() => {
+          onComplete={async () => {
             setShowOnboarding(false);
+            // Mark as dismissed for this user
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              localStorage.setItem(`onboarding_dismissed_${user.id}`, "true");
+            }
             fetchData();
             router.refresh();
           }}
-          onSkip={() => {
-            localStorage.setItem("onboarding_dismissed", "true");
+          onSkip={async () => {
+            // Mark as dismissed for this user
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              localStorage.setItem(`onboarding_dismissed_${user.id}`, "true");
+            }
             setShowOnboarding(false);
           }}
         />
