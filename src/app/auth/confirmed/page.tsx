@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function ConfirmedPage() {
   const router = useRouter();
-  const [status, setStatus] = useState<"checking" | "ready" | "error">("checking");
+  const [status, setStatus] = useState<"checking" | "ready">("checking");
   const supabase = createClient();
 
   useEffect(() => {
@@ -18,7 +18,7 @@ export default function ConfirmedPage() {
     const checkSession = async () => {
       attempts++;
 
-      const { data: { user }, error } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
         // Session established - safe to redirect
@@ -31,9 +31,9 @@ export default function ConfirmedPage() {
       }
 
       if (attempts >= maxAttempts) {
-        // Session never established - something went wrong
-        console.error("Session not established after confirmation:", error);
-        setStatus("error");
+        // Session never established - redirect to login instead of showing error
+        // This handles cases where user navigates here directly or with expired token
+        router.replace("/auth/login");
         return;
       }
 
@@ -62,21 +62,6 @@ export default function ConfirmedPage() {
               </svg>
             </div>
             <p className="text-text-secondary">Taking you to your dashboard...</p>
-          </>
-        )}
-
-        {status === "error" && (
-          <>
-            <div className="w-12 h-12 bg-error/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-            <p className="text-text-primary font-medium mb-2">Something went wrong</p>
-            <p className="text-text-secondary text-sm mb-4">Your session could not be established.</p>
-            <a href="/auth/login" className="btn-primary">
-              Try signing in again
-            </a>
           </>
         )}
       </div>
