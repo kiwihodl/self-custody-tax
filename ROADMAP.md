@@ -1168,60 +1168,52 @@ async function detectInternalTransfers(user_id: string): Promise<void> {
 
 **Success criteria:** ✅ CPAs can manage 10+ clients from single dashboard efficiently.
 
-### Phase 10: White-Label Reports (Advisor Tier Feature)
+### Phase 10: White-Label Reports (Advisor Tier Feature) ✅ COMPLETE
 
 **Goal:** Allow advisors to brand reports with their firm identity
 
 **Deliverables:**
-- [ ] Firm profile settings
-  - [ ] Firm name
-  - [ ] Logo upload (stored in Supabase Storage)
-  - [ ] Brand colors (primary, secondary)
-  - [ ] Contact information
-  - [ ] Disclaimer/footer text
-- [ ] Branded PDF reports
-  - [ ] Custom header with firm logo
-  - [ ] Firm name in footer
-  - [ ] Custom color scheme
-  - [ ] Professional formatting
-- [ ] Branded email communications
+- [x] Firm profile settings
+  - [x] Firm name
+  - [x] Logo upload (stored in Supabase Storage)
+  - [x] Brand colors (primary, secondary, accent)
+  - [x] Contact information (email, phone, website)
+  - [x] Full address (line1, line2, city, state, postal, country)
+  - [x] Disclaimer/footer text
+- [x] Branded PDF reports
+  - [x] Custom header with firm logo
+  - [x] Firm name and contact info in header
+  - [x] Custom color scheme applied throughout
+  - [x] Professional tax report formatting
+  - [x] Custom footer with disclaimer text
+- [x] Report templates
+  - [x] Full tax report with summary + transactions
+  - [x] Preview functionality for testing branding
+- [ ] Branded email communications (future enhancement)
   - [ ] Custom sender name
   - [ ] Firm branding in templates
-- [ ] Report templates
-  - [ ] Full tax report (8949 + summary)
+- [ ] Additional report templates (future enhancement)
   - [ ] Client portfolio summary
   - [ ] Year-end statement
 
-**Technical Approach:**
-- Firm settings stored in `advisor_profiles` table
-- PDF generation using @react-pdf/renderer or puppeteer
-- Logo stored in Supabase Storage with CDN delivery
-- Template system for different report types
+**Implementation Notes (January 2026):**
+- Using @react-pdf/renderer for PDF generation
+- Logo stored in Supabase Storage `advisor-assets` bucket
+- Brand colors support hex format validation
+- Tax report includes short/long-term gains summary
+- Preview generates sample data to test branding
 
-**Database Changes:**
-```sql
-CREATE TABLE public.advisor_profiles (
-  id UUID PRIMARY KEY REFERENCES public.user_profiles(id),
-  firm_name TEXT,
-  logo_url TEXT,
-  primary_color TEXT DEFAULT '#F7931A',
-  secondary_color TEXT DEFAULT '#1a1a2e',
-  contact_email TEXT,
-  contact_phone TEXT,
-  address TEXT,
-  footer_text TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
+**Files Created:**
+- `/supabase/migrations/007_advisor_profiles.sql` - Database schema with RLS policies
+- `/src/app/advisor/branding/page.tsx` - Branding settings UI
+- `/src/app/api/advisor/branding/route.ts` - GET/PATCH branding API
+- `/src/app/api/advisor/branding/logo/route.ts` - Logo upload/delete API
+- `/src/app/api/advisor/reports/branded/route.ts` - PDF generation API
+- `/src/lib/reports/pdf-generator.ts` - PDF generation logic
+- `/src/lib/reports/templates/tax-report.tsx` - Tax report PDF template
+- `/src/lib/reports/index.ts` - Reports module exports
 
-**Files to Create:**
-- `/src/app/advisor/branding/page.tsx` - Branding settings
-- `/src/lib/reports/pdf-generator.ts` - PDF generation
-- `/src/lib/reports/templates/*` - Report templates
-- `/src/components/reports/*` - Report components
-
-**Success criteria:** Advisors deliver professional, branded reports to clients.
+**Success criteria:** ✅ Advisors can upload firm logo, set brand colors, and generate professionally branded PDF tax reports for clients.
 
 ---
 
