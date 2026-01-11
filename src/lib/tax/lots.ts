@@ -7,7 +7,7 @@
 
 import { SupabaseClient } from "@supabase/supabase-js";
 import BigNumber from "bignumber.js";
-import { getPrice } from "@/lib/prices";
+import { getPrices, formatDate } from "@/lib/prices";
 import { TOKEN_CONTRACTS } from "@/lib/ethereum/etherscan";
 
 // Reverse mapping: contract address -> asset symbol
@@ -144,54 +144,78 @@ export async function createTaxLotsForWallet(
 
   const existingTxIds = new Set((existingLots || []).map((l) => l.transaction_id));
 
+  // Filter transactions that need processing
+  const txsToProcess = transactions.filter((tx) => {
+    if (existingTxIds.has(tx.id)) return false;
+    if (tx.is_internal_transfer) return false;
+    if (!getAcquisitionType(tx.category)) return false;
+    if (new BigNumber(tx.amount || "0").isZero()) return false;
+    return true;
+  });
+
+  const skippedCount = transactions.length - txsToProcess.length;
+  result.skipped = skippedCount;
+
   console.log(
-    `[TaxLots] Processing ${transactions.length} transactions, ${existingTxIds.size} already have tax lots`
+    `[TaxLots] Processing ${txsToProcess.length} transactions (${skippedCount} skipped)`
   );
 
-  // Process each transaction
-  for (const tx of transactions) {
-    // Skip if already has a tax lot
-    if (existingTxIds.has(tx.id)) {
-      result.skipped++;
-      continue;
-    }
+  if (txsToProcess.length === 0) {
+    return result;
+  }
 
-    // Skip internal transfers - they don't create new tax lots
-    if (tx.is_internal_transfer) {
-      result.skipped++;
-      continue;
-    }
-
-    // Get acquisition type
-    const acquisitionType = getAcquisitionType(tx.category);
-    if (!acquisitionType) {
-      result.skipped++;
-      continue;
-    }
-
-    // Determine asset from network and token contract
+  // Batch fetch prices: group by asset, collect unique dates
+  const assetDates = new Map<string, Set<string>>();
+  for (const tx of txsToProcess) {
+    if (!tx.block_timestamp) continue;
     const asset = getAssetFromTransaction(wallet.network, tx.token_contract);
-
-    // Get amount
-    const amount = new BigNumber(tx.amount || "0");
-    if (amount.isZero()) {
-      result.skipped++;
-      continue;
+    if (!assetDates.has(asset)) {
+      assetDates.set(asset, new Set());
     }
+    assetDates.get(asset)!.add(formatDate(new Date(tx.block_timestamp)));
+  }
 
-    // Get historical price
+  // Fetch all prices in batch per asset
+  const priceCache = new Map<string, Map<string, number>>();
+  const assetKeys = Array.from(assetDates.keys());
+  for (const asset of assetKeys) {
+    const dateSet = assetDates.get(asset)!;
+    const dates = Array.from(dateSet).map((d) => new Date(d));
+    console.log(`[TaxLots] Batch fetching ${dates.length} prices for ${asset}...`);
+    const prices = await getPrices(supabase, asset, dates);
+    priceCache.set(asset, prices);
+  }
+
+  // Prepare batch insert
+  const lotsToInsert: Array<{
+    user_id: string;
+    wallet_id: string;
+    transaction_id: string;
+    asset: string;
+    amount: string;
+    txid: string;
+    acquisition_date: string;
+    acquisition_price_usd: number;
+    cost_basis_usd: number;
+    acquisition_type: string;
+    is_disposed: boolean;
+  }> = [];
+
+  for (const tx of txsToProcess) {
+    const acquisitionType = getAcquisitionType(tx.category)!;
+    const asset = getAssetFromTransaction(wallet.network, tx.token_contract);
+    const amount = new BigNumber(tx.amount || "0");
+
+    // Get price from cache
     let priceUsd = 0;
     if (tx.block_timestamp) {
-      const txDate = new Date(tx.block_timestamp);
-      const price = await getPrice(supabase, asset, txDate);
-      priceUsd = price || 0;
+      const dateStr = formatDate(new Date(tx.block_timestamp));
+      priceUsd = priceCache.get(asset)?.get(dateStr) || 0;
     }
 
-    // Calculate cost basis
     const costBasisUsd = amount.multipliedBy(priceUsd).toNumber();
 
-    // Create tax lot
-    const { error: insertError } = await supabase.from("tax_lots").insert({
+    lotsToInsert.push({
       user_id: wallet.user_id,
       wallet_id: walletId,
       transaction_id: tx.id,
@@ -204,15 +228,21 @@ export async function createTaxLotsForWallet(
       acquisition_type: acquisitionType,
       is_disposed: false,
     });
+  }
+
+  // Batch insert all lots
+  if (lotsToInsert.length > 0) {
+    const { error: insertError, data: inserted } = await supabase
+      .from("tax_lots")
+      .insert(lotsToInsert)
+      .select("id");
 
     if (insertError) {
-      result.failed++;
-      result.errors.push(`Failed to create tax lot for tx ${tx.txid}: ${insertError.message}`);
+      result.failed = lotsToInsert.length;
+      result.errors.push(`Batch insert failed: ${insertError.message}`);
     } else {
-      result.created++;
-      console.log(
-        `[TaxLots] Created lot: ${amount.toFixed(8)} ${asset} @ $${priceUsd.toFixed(2)} = $${costBasisUsd.toFixed(2)}`
-      );
+      result.created = inserted?.length || lotsToInsert.length;
+      console.log(`[TaxLots] Batch inserted ${result.created} tax lots`);
     }
   }
 
@@ -495,24 +525,46 @@ export async function processSendTransactions(
     (existingDisposals || []).map((d) => d.disposal_transaction_id)
   );
 
-  for (const tx of sendTxs) {
-    if (processedTxIds.has(tx.id)) {
-      continue; // Already processed
-    }
+  // Filter to unprocessed transactions with valid amounts
+  const txsToProcess = sendTxs.filter((tx) => {
+    if (processedTxIds.has(tx.id)) return false;
+    if (new BigNumber(tx.amount || "0").isZero()) return false;
+    return true;
+  });
 
-    const amount = new BigNumber(tx.amount || "0");
-    if (amount.isZero()) {
-      continue;
-    }
+  if (txsToProcess.length === 0) {
+    return result;
+  }
 
-    // Determine asset from network and token contract
+  // Batch fetch prices for all send transactions
+  const assetDates = new Map<string, Set<string>>();
+  for (const tx of txsToProcess) {
     const asset = getAssetFromTransaction(wallet.network, tx.token_contract);
+    if (!assetDates.has(asset)) {
+      assetDates.set(asset, new Set());
+    }
+    assetDates.get(asset)!.add(formatDate(new Date(tx.block_timestamp)));
+  }
 
+  const priceCache = new Map<string, Map<string, number>>();
+  const assetKeys = Array.from(assetDates.keys());
+  for (const asset of assetKeys) {
+    const dateSet = assetDates.get(asset)!;
+    const dates = Array.from(dateSet).map((d) => new Date(d));
+    console.log(`[TaxLots] Batch fetching ${dates.length} disposal prices for ${asset}...`);
+    const prices = await getPrices(supabase, asset, dates);
+    priceCache.set(asset, prices);
+  }
+
+  for (const tx of txsToProcess) {
+    const amount = new BigNumber(tx.amount || "0");
+    const asset = getAssetFromTransaction(wallet.network, tx.token_contract);
     const disposalDate = new Date(tx.block_timestamp);
+    const dateStr = formatDate(disposalDate);
 
-    // Get price at disposal
-    const price = await getPrice(supabase, asset, disposalDate);
-    const proceedsUsd = amount.multipliedBy(price || 0).toNumber();
+    // Get price from cache
+    const price = priceCache.get(asset)?.get(dateStr) || 0;
+    const proceedsUsd = amount.multipliedBy(price).toNumber();
 
     // Calculate disposal
     const disposal = await calculateDisposal(
@@ -536,7 +588,7 @@ export async function processSendTransactions(
       disposal,
       tx.id,
       disposalDate,
-      price || 0
+      price
     );
 
     if (success) {

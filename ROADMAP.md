@@ -1020,7 +1020,7 @@ async function detectInternalTransfers(user_id: string): Promise<void> {
 
 **Success criteria:** Real users successfully tracking portfolios and generating tax reports.
 
-### Phase 6: Performance & Refinement (Week 11-12)
+### Phase 6: Performance & Refinement (Week 11-12) ✅ COMPLETE
 
 **Goal:** Optimize performance and improve reliability
 
@@ -1029,7 +1029,7 @@ async function detectInternalTransfers(user_id: string): Promise<void> {
 - [x] Loading states and skeleton screens
 - [x] Caching optimization (SWR)
 - [x] Bundle size optimization (removed unused deps: date-fns, react-query, react-hook-form, zod)
-- [ ] Database query optimization
+- [x] Database query optimization (batch price fetching + batch inserts)
 - [x] Rate limiting improvements (token bucket algorithm)
 - [x] Retry logic with exponential backoff and jitter
 - [x] Batch processing for large wallets (configurable concurrency)
@@ -1040,6 +1040,11 @@ async function detectInternalTransfers(user_id: string): Promise<void> {
 - SWR hooks: `/src/lib/hooks/` - useWallets, useTransactions, useTaxLots, usePrices
 - Rate limiter: `/src/lib/utils/rate-limiter.ts` - Token bucket + exponential backoff
 - Batch processing: 3 concurrent address fetches, 500ms delay between batches
+- **Tax lot optimization**: `createTaxLotsForWallet` and `processSendTransactions` now use batch price fetching
+  - Collects all unique dates first, fetches prices in single batch query
+  - Batch inserts tax lots instead of one-by-one
+  - Eliminates N+1 pattern: 100 txs = 1 batch query instead of 100 sequential
+  - Expected speedup: 2-3 min → 10-30 sec for typical portfolios
 
 **Success criteria:** App handles edge cases gracefully and performs well with large portfolios.
 

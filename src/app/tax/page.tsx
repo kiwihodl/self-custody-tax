@@ -15,6 +15,7 @@ export default function TaxPage() {
   const [year, setYear] = useState(2026);
   const [method, setMethod] = useState<"FIFO" | "LIFO" | "HIFO">("FIFO");
   const [message, setMessage] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
+  const [showCostBasisTooltip, setShowCostBasisTooltip] = useState<"short" | "long" | null>(null);
   const supabase = createClient();
 
   const fetchSummary = useCallback(async () => {
@@ -332,7 +333,7 @@ export default function TaxPage() {
             {/* Summary Cards */}
             <div className="grid md:grid-cols-3 gap-6 mb-8">
               {/* Short-term */}
-              <div className="card group hover:border-warning/30 transition-colors">
+              <div className="card group hover:border-warning/30 transition-colors relative">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
                     <svg className="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -347,7 +348,24 @@ export default function TaxPage() {
                     <span className="text-text-primary font-mono">{formatCurrency(summary.shortTerm.proceeds)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-text-secondary">Cost Basis</span>
+                    <span className="text-text-secondary flex items-center gap-1">
+                      Cost Basis
+                      <button
+                        onClick={() => setShowCostBasisTooltip(showCostBasisTooltip === "short" ? null : "short")}
+                        className="text-text-muted hover:text-text-secondary transition-colors"
+                        aria-label="Cost basis info"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                        </svg>
+                      </button>
+                      {showCostBasisTooltip === "short" && (
+                        <div className="absolute z-10 mt-8 left-0 w-72 p-3 bg-bg-raised border border-border rounded-lg shadow-lg text-xs text-text-secondary">
+                          <p className="mb-2">Cost basis = purchase price × amount. Calculated using {method} method.</p>
+                          <p>To adjust: <a href="/transactions" className="text-primary hover:underline">Edit transactions</a> or <a href="/gains" className="text-primary hover:underline">edit tax lots</a>.</p>
+                        </div>
+                      )}
+                    </span>
                     <span className="text-text-primary font-mono">{formatCurrency(summary.shortTerm.costBasis)}</span>
                   </div>
                   <div className="flex justify-between border-t border-border pt-3">
@@ -363,7 +381,7 @@ export default function TaxPage() {
               </div>
 
               {/* Long-term */}
-              <div className="card group hover:border-success/30 transition-colors">
+              <div className="card group hover:border-success/30 transition-colors relative">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
                     <svg className="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -378,7 +396,24 @@ export default function TaxPage() {
                     <span className="text-text-primary font-mono">{formatCurrency(summary.longTerm.proceeds)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-text-secondary">Cost Basis</span>
+                    <span className="text-text-secondary flex items-center gap-1">
+                      Cost Basis
+                      <button
+                        onClick={() => setShowCostBasisTooltip(showCostBasisTooltip === "long" ? null : "long")}
+                        className="text-text-muted hover:text-text-secondary transition-colors"
+                        aria-label="Cost basis info"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                        </svg>
+                      </button>
+                      {showCostBasisTooltip === "long" && (
+                        <div className="absolute z-10 mt-8 left-0 w-72 p-3 bg-bg-raised border border-border rounded-lg shadow-lg text-xs text-text-secondary">
+                          <p className="mb-2">Cost basis = purchase price × amount. Calculated using {method} method.</p>
+                          <p>To adjust: <a href="/transactions" className="text-primary hover:underline">Edit transactions</a> or <a href="/gains" className="text-primary hover:underline">edit tax lots</a>.</p>
+                        </div>
+                      )}
+                    </span>
                     <span className="text-text-primary font-mono">{formatCurrency(summary.longTerm.costBasis)}</span>
                   </div>
                   <div className="flex justify-between border-t border-border pt-3">
