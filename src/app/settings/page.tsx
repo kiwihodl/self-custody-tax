@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Nav } from "@/components/nav";
 import { SubscriptionTier, SUBSCRIPTION_TIERS } from "@/lib/stripe/tiers";
@@ -35,6 +36,18 @@ export default function SettingsPage() {
   const [showExportPaywall, setShowExportPaywall] = useState(false);
   const [processingExportFee, setProcessingExportFee] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
+  const [apiKeys, setApiKeys] = useState<Array<{
+    id: string;
+    name: string;
+    key_prefix: string;
+    last_used_at: string | null;
+    created_at: string;
+  }>>([]);
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [newApiKeyName, setNewApiKeyName] = useState("");
+  const [creatingApiKey, setCreatingApiKey] = useState(false);
+  const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
+  const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
   const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,6 +73,18 @@ export default function SettingsPage() {
       }
       if (profile?.subscription_tier) {
         setSubscriptionTier(profile.subscription_tier as SubscriptionTier);
+
+        // Load API keys for Advisor tier users
+        if (profile.subscription_tier === "advisor") {
+          fetch("/api/v1/keys")
+            .then(res => res.json())
+            .then(data => {
+              if (data.data) {
+                setApiKeys(data.data);
+              }
+            })
+            .catch(console.error);
+        }
       }
       if (profile?.has_paid_export_fee) {
         setHasPaidExportFee(true);
@@ -190,6 +215,67 @@ export default function SettingsPage() {
       setMessage({ type: "error", text: "Failed to start checkout" });
     } finally {
       setProcessingExportFee(false);
+    }
+  };
+
+  const handleCreateApiKey = async () => {
+    if (!newApiKeyName.trim()) {
+      setMessage({ type: "error", text: "Please enter a name for the API key" });
+      return;
+    }
+
+    setCreatingApiKey(true);
+    try {
+      const response = await fetch("/api/v1/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newApiKeyName.trim() }),
+      });
+      const data = await response.json();
+
+      if (data.error) {
+        setMessage({ type: "error", text: data.error });
+        return;
+      }
+
+      // Show the key to the user (only shown once)
+      setNewlyCreatedKey(data.data.key);
+      setApiKeys(prev => [{
+        id: data.data.id,
+        name: newApiKeyName.trim(),
+        key_prefix: data.data.key.slice(0, 8),
+        last_used_at: null,
+        created_at: new Date().toISOString(),
+      }, ...prev]);
+      setNewApiKeyName("");
+    } catch (err) {
+      console.error("API key creation error:", err);
+      setMessage({ type: "error", text: "Failed to create API key" });
+    } finally {
+      setCreatingApiKey(false);
+    }
+  };
+
+  const handleRevokeApiKey = async (keyId: string) => {
+    setRevokingKeyId(keyId);
+    try {
+      const response = await fetch(`/api/v1/keys/${keyId}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+
+      if (data.error) {
+        setMessage({ type: "error", text: data.error });
+        return;
+      }
+
+      setApiKeys(prev => prev.filter(k => k.id !== keyId));
+      setMessage({ type: "success", text: "API key revoked" });
+    } catch (err) {
+      console.error("API key revoke error:", err);
+      setMessage({ type: "error", text: "Failed to revoke API key" });
+    } finally {
+      setRevokingKeyId(null);
     }
   };
 
@@ -382,6 +468,152 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+
+        {/* API Keys Section - Advisor tier only */}
+        {subscriptionTier === "advisor" && (
+          <div className="card mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-text-primary">API Keys</h2>
+                  <p className="text-xs text-text-secondary">Programmatic access to your data</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/docs/api"
+                  className="btn-secondary text-sm py-2"
+                >
+                  API Docs
+                </Link>
+                <button
+                  onClick={() => setShowApiKeyModal(true)}
+                  className="btn-primary text-sm py-2"
+                >
+                  + New Key
+                </button>
+              </div>
+            </div>
+
+            {apiKeys.length === 0 ? (
+              <div className="p-6 bg-bg-elevated rounded-xl text-center">
+                <p className="text-text-secondary">No API keys yet.</p>
+                <p className="text-sm text-text-muted mt-1">
+                  Create a key to access the API. See the{' '}
+                  <Link href="/docs/api" className="text-primary hover:underline">API documentation</Link>
+                  {' '}for usage instructions.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {apiKeys.map(key => (
+                  <div key={key.id} className="p-4 bg-bg-elevated rounded-xl flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-text-primary">{key.name}</p>
+                      <p className="text-xs text-text-muted font-mono">
+                        {key.key_prefix}...
+                        {key.last_used_at ? (
+                          <span className="ml-2">Last used: {new Date(key.last_used_at).toLocaleDateString()}</span>
+                        ) : (
+                          <span className="ml-2">Never used</span>
+                        )}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleRevokeApiKey(key.id)}
+                      disabled={revokingKeyId === key.id}
+                      className="text-sm text-error hover:text-error/80 disabled:opacity-50"
+                    >
+                      {revokingKeyId === key.id ? "Revoking..." : "Revoke"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <p className="text-xs text-text-muted mt-4">
+              API documentation: <a href="/docs/api" className="text-primary hover:underline">/docs/api</a>
+            </p>
+          </div>
+        )}
+
+        {/* Create API Key Modal */}
+        {showApiKeyModal && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+            <div className="bg-bg-raised border border-border rounded-xl p-6 w-full max-w-md">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-text-primary">
+                    {newlyCreatedKey ? "API Key Created" : "Create API Key"}
+                  </h3>
+                  <p className="text-sm text-text-secondary">
+                    {newlyCreatedKey ? "Save this key - it won't be shown again" : "Give your key a name"}
+                  </p>
+                </div>
+              </div>
+
+              {newlyCreatedKey ? (
+                <>
+                  <div className="p-4 bg-bg-elevated rounded-xl mb-4">
+                    <p className="text-xs text-text-muted mb-2">Your API Key:</p>
+                    <code className="text-sm text-primary break-all select-all">{newlyCreatedKey}</code>
+                  </div>
+                  <p className="text-sm text-warning mb-4">
+                    Copy this key now. For security, it cannot be displayed again.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowApiKeyModal(false);
+                      setNewlyCreatedKey(null);
+                    }}
+                    className="w-full btn-primary"
+                  >
+                    Done
+                  </button>
+                </>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={newApiKeyName}
+                    onChange={(e) => setNewApiKeyName(e.target.value)}
+                    placeholder="e.g., Production, Tax Software, QuickBooks"
+                    className="input w-full mb-4"
+                    maxLength={50}
+                  />
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowApiKeyModal(false);
+                        setNewApiKeyName("");
+                      }}
+                      className="flex-1 btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleCreateApiKey}
+                      disabled={creatingApiKey || !newApiKeyName.trim()}
+                      className="flex-1 btn-primary disabled:opacity-50"
+                    >
+                      {creatingApiKey ? "Creating..." : "Create Key"}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Tax Settings */}
         <div className="card mb-6">

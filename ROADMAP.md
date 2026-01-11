@@ -1069,6 +1069,160 @@ async function detectInternalTransfers(user_id: string): Promise<void> {
 
 **Success criteria:** Users can subscribe and access premium features.
 
+### Phase 8: Public API (Advisor Tier Feature) ✅ COMPLETE
+
+**Goal:** Provide programmatic access for Advisor tier users
+
+**Deliverables:**
+- [x] API key management (/settings/api-keys page)
+- [x] API key generation and revocation
+- [x] Rate limiting per API key (1000 requests/day)
+- [x] RESTful endpoints:
+  - [x] GET /api/v1/wallets - List wallets
+  - [x] GET /api/v1/wallets/:id - Wallet details
+  - [x] GET /api/v1/transactions - List transactions with filters
+  - [x] GET /api/v1/tax-lots - List tax lots
+  - [x] GET /api/v1/tax/summary?year=YYYY - Tax summary
+  - [x] POST /api/v1/keys - Create API key
+  - [x] DELETE /api/v1/keys/:id - Revoke API key
+- [x] API documentation page (/docs/api)
+- [ ] OpenAPI/Swagger specification (future enhancement)
+- [ ] Webhook support for wallet sync events (future enhancement)
+
+**Implementation Notes (January 2026):**
+- API keys stored in `api_keys` table with SHA-256 hashed secrets
+- Bearer token authentication via `X-API-Key` header
+- Rate limiting: 1000 requests/day per key using token bucket algorithm
+- 103 tests covering auth, rate limiting, and response formatting
+
+**Files Created:**
+- `/src/app/api/v1/*` - All API endpoints
+- `/src/lib/api/auth.ts` - API key validation + Advisor tier check
+- `/src/lib/api/rate-limit.ts` - Per-key rate limiting
+- `/src/lib/api/response.ts` - Standardized API responses
+- `/src/app/docs/api/page.tsx` - Interactive API documentation
+
+**Success criteria:** ✅ Advisor users can programmatically access their data and integrate with other tools.
+
+### Phase 9: Multi-Client Dashboard (Advisor Tier Feature) ✅ COMPLETE
+
+**Goal:** Enable CPAs and advisors to manage multiple client portfolios
+
+**Deliverables:**
+- [x] Client invitation system
+  - [x] Invite client by email
+  - [x] Client accepts and links account (/invite/[token] page)
+  - [x] Permission levels (view-only, view+edit)
+  - [x] Email notifications via Resend (invitation + acceptance)
+- [x] Multi-client dashboard (/advisor/dashboard)
+  - [x] List all linked clients with status badges
+  - [x] Quick status view (last sync, wallet count, balance)
+  - [x] Total AUM across clients
+  - [x] Search and filter by status
+  - [x] Invite new clients modal
+- [x] Bulk operations
+  - [x] Bulk sync all client wallets (/api/advisor/bulk/sync)
+  - [x] Bulk generate tax reports (/api/advisor/bulk/reports)
+  - [x] Bulk export (ZIP of all reports)
+  - [x] Dashboard UI with multi-select, bulk sync button, and report modal
+- [x] Client switching ("View as client" mode)
+  - [x] AdvisorContextBanner component
+  - [x] Cookie-based context with 4-hour expiry
+  - [x] Exit context button
+- [x] Audit log of advisor actions
+  - [x] AuditActions constants
+  - [x] logAdvisorAction function
+  - [x] Action categories (view, edit, report, sync, access, invitation)
+- [x] Client-side management
+  - [x] Connected advisors page (/settings/advisors)
+  - [x] Revoke advisor access
+
+**Implementation Notes (January 2026):**
+- Database migration: `/supabase/migrations/006_advisor_clients.sql`
+- Email integration: Resend API with branded HTML templates
+- 195 tests passing (28 email + 57 advisor context + 60 bulk + 50 API tests)
+- RLS policies for cross-user data access with permission checks
+- Bulk operations: 50 client limit per request, sequential processing to avoid rate limits
+- Cost basis methods: FIFO, LIFO, HIFO selectable in report modal
+
+**Files Created:**
+- `/src/app/advisor/*` - Advisor dashboard and landing pages
+- `/src/lib/advisor/clients.ts` - Client CRUD + invitation logic
+- `/src/lib/advisor/context.ts` - "Viewing as" session management
+- `/src/lib/advisor/audit.ts` - Audit logging
+- `/src/lib/advisor/bulk.ts` - Bulk sync and report generation
+- `/src/lib/advisor/types.ts` - TypeScript interfaces
+- `/src/lib/email/index.ts` - Resend email integration
+- `/src/components/advisor-context-banner.tsx` - Viewing-as UI banner
+- `/src/app/invite/[token]/page.tsx` - Accept invitation page
+- `/src/app/settings/advisors/page.tsx` - Client's connected advisors
+- `/src/app/api/advisor/*` - All advisor API endpoints
+- `/src/app/api/advisor/bulk/sync/route.ts` - Bulk sync endpoint
+- `/src/app/api/advisor/bulk/reports/route.ts` - Bulk reports endpoint
+
+**Future Enhancements:**
+1. Report generation UI in advisor context
+2. Notification preferences for advisors
+3. Activity feed on dashboard
+4. ZIP file streaming for large bulk exports
+
+**Success criteria:** ✅ CPAs can manage 10+ clients from single dashboard efficiently.
+
+### Phase 10: White-Label Reports (Advisor Tier Feature)
+
+**Goal:** Allow advisors to brand reports with their firm identity
+
+**Deliverables:**
+- [ ] Firm profile settings
+  - [ ] Firm name
+  - [ ] Logo upload (stored in Supabase Storage)
+  - [ ] Brand colors (primary, secondary)
+  - [ ] Contact information
+  - [ ] Disclaimer/footer text
+- [ ] Branded PDF reports
+  - [ ] Custom header with firm logo
+  - [ ] Firm name in footer
+  - [ ] Custom color scheme
+  - [ ] Professional formatting
+- [ ] Branded email communications
+  - [ ] Custom sender name
+  - [ ] Firm branding in templates
+- [ ] Report templates
+  - [ ] Full tax report (8949 + summary)
+  - [ ] Client portfolio summary
+  - [ ] Year-end statement
+
+**Technical Approach:**
+- Firm settings stored in `advisor_profiles` table
+- PDF generation using @react-pdf/renderer or puppeteer
+- Logo stored in Supabase Storage with CDN delivery
+- Template system for different report types
+
+**Database Changes:**
+```sql
+CREATE TABLE public.advisor_profiles (
+  id UUID PRIMARY KEY REFERENCES public.user_profiles(id),
+  firm_name TEXT,
+  logo_url TEXT,
+  primary_color TEXT DEFAULT '#F7931A',
+  secondary_color TEXT DEFAULT '#1a1a2e',
+  contact_email TEXT,
+  contact_phone TEXT,
+  address TEXT,
+  footer_text TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**Files to Create:**
+- `/src/app/advisor/branding/page.tsx` - Branding settings
+- `/src/lib/reports/pdf-generator.ts` - PDF generation
+- `/src/lib/reports/templates/*` - Report templates
+- `/src/components/reports/*` - Report components
+
+**Success criteria:** Advisors deliver professional, branded reports to clients.
+
 ---
 
 ## Part 4: Testing Strategy

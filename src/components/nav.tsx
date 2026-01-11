@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useRef, useEffect } from "react";
+import { AdvisorContextBanner } from "./advisor-context-banner";
 
 // Account dropdown items
 const accountItems = [
@@ -106,6 +107,7 @@ export function Nav() {
   const isWalletsSection = walletsItems.some(item => pathname === item.href) || pathname.startsWith("/wallets/");
 
   return (
+    <>
     <nav className="sticky top-0 z-50 glass border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
@@ -378,5 +380,7 @@ export function Nav() {
         </div>
       </div>
     </nav>
+    <AdvisorContextBanner />
+    </>
   );
 }
