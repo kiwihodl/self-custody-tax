@@ -169,7 +169,7 @@ export function Nav() {
               </button>
 
               {walletsOpen && (
-                <div className="absolute left-0 mt-2 w-48 bg-bg-card/[0.79] backdrop-blur-xl rounded-lg shadow-lg border border-border overflow-hidden">
+                <div className="absolute left-0 mt-2 w-48 bg-bg-elevated rounded-lg shadow-lg border border-border overflow-hidden">
                   {walletsItems.map((item, index) => {
                     const isActive = pathname === item.href;
                     const isFirst = index === 0;
@@ -246,7 +246,7 @@ export function Nav() {
             </button>
 
             {accountOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-bg-card/[0.79] backdrop-blur-xl rounded-lg shadow-lg border border-border overflow-hidden">
+              <div className="absolute right-0 mt-2 w-48 bg-bg-elevated rounded-lg shadow-lg border border-border overflow-hidden">
                 {accountItems.map((item, index) => {
                   const isActive = pathname === item.href;
                   const isFirst = index === 0;
