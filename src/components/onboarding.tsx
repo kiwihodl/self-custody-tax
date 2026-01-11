@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { syncWalletClient } from "@/lib/bitcoin/clientSync";
 import { syncEthereumWalletClient } from "@/lib/ethereum/clientSync";
-import { SubscriptionTier, checkLimits } from "@/lib/stripe/tiers";
+import { SubscriptionTier, checkLimits, SUBSCRIPTION_TIERS } from "@/lib/stripe/tiers";
 import type { Network, WalletType, Wallet } from "@/types";
 
 interface OnboardingWizardProps {
@@ -12,7 +12,7 @@ interface OnboardingWizardProps {
   onSkip: () => void;
 }
 
-type Step = "welcome" | "network" | "input" | "syncing" | "complete";
+type Step = "welcome" | "network" | "input" | "syncing" | "complete" | "upgrade";
 
 export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) {
   const [step, setStep] = useState<Step>("welcome");
@@ -23,7 +23,28 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
   const [inputType, setInputType] = useState<"address" | "xpub">("address");
   const [error, setError] = useState<string | null>(null);
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
+  const [userTier, setUserTier] = useState<SubscriptionTier>("free");
   const supabase = createClient();
+
+  // Fetch user tier on mount
+  useEffect(() => {
+    const fetchTier = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("subscription_tier")
+          .eq("id", user.id)
+          .single();
+        if (profile?.subscription_tier) {
+          setUserTier(profile.subscription_tier as SubscriptionTier);
+        }
+      }
+    };
+    fetchTier();
+  }, [supabase]);
+
+  const tierInfo = SUBSCRIPTION_TIERS[userTier];
 
   const handleCategorySelect = (category: "bitcoin" | "crypto" | "stablecoin") => {
     setAssetCategory(category);
@@ -95,11 +116,11 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
         .eq("is_deleted", false);
 
       const tier = (profile?.subscription_tier as SubscriptionTier) || "free";
-      const { canAddWallet, message } = checkLimits(tier, walletCount || 0, 0);
+      const { canAddWallet } = checkLimits(tier, walletCount || 0, 0);
 
       if (!canAddWallet) {
-        setError(message || "Wallet limit reached. Upgrade your plan to add more wallets.");
-        setStep("input");
+        // Show upgrade step instead of error
+        setStep("upgrade");
         return;
       }
 
@@ -154,6 +175,18 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 w-full max-w-lg relative">
+        {/* Tier badge - top left */}
+        <div className="absolute top-4 left-4">
+          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+            userTier === "free" ? "bg-gray-700 text-gray-300" :
+            userTier === "holder" ? "bg-primary/20 text-primary" :
+            userTier === "sovereign" ? "bg-purple-500/20 text-purple-400" :
+            "bg-blue-500/20 text-blue-400"
+          }`}>
+            {tierInfo.name} Plan
+          </span>
+        </div>
+
         {/* Close button - show on all steps except syncing */}
         {step !== "syncing" && (
           <button
@@ -169,7 +202,7 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
 
         {/* Welcome Step */}
         {step === "welcome" && (
-          <div className="text-center space-y-6">
+          <div className="text-center space-y-6 pt-4">
             <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto">
               <span className="text-3xl">&#8383;</span>
             </div>
@@ -180,12 +213,23 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
                 Let&apos;s get you set up in just a few steps.
               </p>
             </div>
+            {/* Tier-specific info */}
+            <div className="bg-gray-800/50 rounded-lg p-4 text-left">
+              <p className="text-sm text-gray-400 mb-2">Your {tierInfo.name} plan includes:</p>
+              <ul className="text-sm text-gray-300 space-y-1">
+                {tierInfo.features.slice(0, 3).map((feature, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <span className="text-primary">&#10003;</span> {feature}
+                  </li>
+                ))}
+              </ul>
+            </div>
             <div className="space-y-3">
               <button
                 onClick={() => setStep("network")}
                 className="w-full btn-primary py-3"
               >
-                Get Started
+                Add Your First Wallet
               </button>
               <button
                 onClick={onSkip}
@@ -368,7 +412,7 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
 
         {/* Complete Step */}
         {step === "complete" && (
-          <div className="text-center space-y-6">
+          <div className="text-center space-y-6 pt-4">
             <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto">
               <span className="text-3xl text-green-400">&#10003;</span>
             </div>
@@ -386,12 +430,63 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
               >
                 Go to Dashboard
               </button>
+              {userTier === "free" && (
+                <a
+                  href="/pricing"
+                  className="block w-full text-primary hover:text-primary-glow text-sm"
+                >
+                  Upgrade for more wallets & features →
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Upgrade Step - shown when wallet limit reached */}
+        {step === "upgrade" && (
+          <div className="text-center space-y-6 pt-4">
+            <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto">
+              <svg className="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Wallet Limit Reached</h2>
+              <p className="text-gray-400">
+                Your {tierInfo.name} plan includes {tierInfo.limits.wallets === Infinity ? "unlimited" : tierInfo.limits.wallets} wallet{tierInfo.limits.wallets !== 1 ? "s" : ""}.
+                Upgrade to add more wallets and unlock additional features.
+              </p>
+            </div>
+            <div className="bg-gray-800/50 rounded-lg p-4">
+              <p className="text-sm text-gray-400 mb-3">Upgrade to Holder ($99/year) for:</p>
+              <ul className="text-sm text-gray-300 space-y-1 text-left">
+                <li className="flex items-center gap-2">
+                  <span className="text-primary">&#10003;</span> 10 wallets
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-primary">&#10003;</span> Unlimited transactions
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-primary">&#10003;</span> Tax reports (Form 8949)
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-primary">&#10003;</span> FIFO/LIFO/HIFO cost basis
+                </li>
+              </ul>
+            </div>
+            <div className="space-y-3">
               <a
-                href="/wallets"
-                className="block w-full text-gray-400 hover:text-white text-sm"
+                href="/pricing"
+                className="block w-full btn-primary py-3 text-center"
               >
-                Add another wallet
+                View Plans & Upgrade
               </a>
+              <button
+                onClick={onComplete}
+                className="w-full text-gray-500 hover:text-gray-300 text-sm"
+              >
+                Continue with current plan
+              </button>
             </div>
           </div>
         )}
