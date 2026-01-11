@@ -135,12 +135,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-text-primary">Dashboard</h1>
-        <p className="text-text-secondary mt-1">Your crypto portfolio at a glance</p>
-      </div>
-
       {/* Portfolio Summary - Asset Categories */}
       <div className="grid md:grid-cols-4 gap-6">
         {/* Bitcoin - Standalone Category */}
