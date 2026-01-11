@@ -966,38 +966,57 @@ async function detectInternalTransfers(user_id: string): Promise<void> {
 **Goal:** Multisig support and internal transfer detection
 
 **Deliverables:**
-- [ ] Multisig wallet type with quorum configuration
-- [ ] Internal transfer detection algorithm
-- [ ] Manual transfer linking UI
-- [ ] LIFO and HIFO cost basis methods
-- [ ] Unrealized gains view
+- [x] Multisig wallet type with quorum configuration (descriptors.ts + wallet add UI)
+- [x] Internal transfer detection algorithm (/lib/bitcoin/internalTransfers.ts)
+- [x] Manual transfer linking UI (transactions page + /api/transactions/link)
+- [x] LIFO and HIFO cost basis methods (implemented in settings + tax calculations)
+- [x] Unrealized gains view (/gains page with tax lot table + cost basis editing)
+
+**Implementation Notes (January 2026):**
+- Multisig descriptor parsing: `/src/lib/bitcoin/descriptors.ts` with full BIP32/wsh support
+- Internal transfer detection: `/src/lib/bitcoin/internalTransfers.ts` (288 lines)
+- API endpoints: `/api/transactions/detect-internal` and `/api/transactions/link`
+- Delete account fixed: Now deletes auth.users via admin client, case-insensitive confirmation
 
 **Success criteria:** User with multisig setup can track without false disposal events.
 
-### Phase 4: Stablecoins (Week 7-8)
+### Phase 4: Stablecoins (Week 7-8) ✅ COMPLETE
 
 **Goal:** USDT/USDC support
 
 **Deliverables:**
-- [ ] Ethereum wallet type
-- [ ] ERC-20 transaction fetching (Etherscan)
-- [ ] Stablecoin balance tracking
-- [ ] Combined portfolio view (BTC + stables)
+- [x] Ethereum wallet type (implemented with address tracking)
+- [x] ERC-20 transaction fetching (Etherscan API with proxy for API key security)
+- [x] Stablecoin balance tracking (USDT/USDC with 1.0 USD price optimization)
+- [x] Combined portfolio view (BTC + stables in dashboard)
+- [x] Tax lot asset detection for stablecoins (USDT/USDC instead of ETH)
+- [x] Internal transfer detection for Ethereum (shared implementation with Bitcoin)
 
 **Success criteria:** User can track both Bitcoin and stablecoin holdings.
 
-### Phase 5: Polish & Launch (Week 9-10)
+**Implementation notes:**
+- Etherscan proxy at `/api/proxy/etherscan` keeps API key server-side
+- Price cache returns 1.0 for stablecoins (USDT, USDC, DAI, BUSD, TUSD, USDP) without API calls
+- Tax lots correctly identify asset from `token_contract` field
+
+### Phase 5: Polish & Launch (Week 9-10) ✅ COMPLETE
 
 **Goal:** Production-ready for beta users
 
 **Deliverables:**
-- [ ] Exchange CSV import (Amber App priority, then Coinbase, Kraken)
-- [ ] Subscription system (Stripe integration)
-- [ ] Onboarding wizard
-- [ ] Documentation / help center
-- [ ] Error handling and edge cases
-- [ ] Performance optimization
-- [ ] Beta launch to 20-50 users
+- [x] Exchange CSV import (AmberApp, Coinbase, Kraken, Gemini, River, Swan parsers implemented)
+- [x] Subscription system (Stripe integration complete with checkout + webhooks)
+- [x] Onboarding wizard (Modal wizard with Bitcoin/Crypto/Stablecoin selection, wallet sync)
+- [x] Documentation / help center (Help page with FAQs + guides)
+- [x] Error handling and edge cases (Error boundaries, loading states)
+- [x] Performance optimization
+- [ ] Beta launch to 20-50 users (business task)
+
+**Implementation Notes (January 2026):**
+- Onboarding wizard: `/src/components/onboarding.tsx` with 5-step flow
+- Shows automatically for new users with no wallets
+- Supports Bitcoin (address/xpub), Ethereum (address), and Stablecoins
+- Integrates with subscription tier limits
 
 **Success criteria:** Real users successfully tracking portfolios and generating tax reports.
 
@@ -1024,18 +1043,24 @@ async function detectInternalTransfers(user_id: string): Promise<void> {
 
 **Success criteria:** App handles edge cases gracefully and performs well with large portfolios.
 
-### Phase 7: Monetization (Week 13-14)
+### Phase 7: Monetization (Week 13-14) ✅ COMPLETE
 
 **Goal:** Subscription system for revenue generation
 
 **Deliverables:**
-- [ ] Stripe integration for payments
-- [ ] Subscription tiers (Free, Holder, Sovereign, Advisor)
-- [ ] Usage limits enforcement (wallet count, transaction limits)
-- [ ] Customer portal for subscription management
-- [ ] Billing webhooks for subscription events
-- [ ] Upgrade/downgrade flows
-- [ ] Trial period implementation
+- [x] Stripe integration for payments (Checkout sessions + webhooks)
+- [x] Subscription tiers (Free, Holder, Sovereign, Advisor - defined in /lib/stripe/tiers.ts)
+- [x] Usage limits enforcement (checkLimits function in tiers.ts, enforced in wallets and onboarding)
+- [x] Customer portal for subscription management (/api/stripe/portal + settings page integration)
+- [x] Billing webhooks for subscription events (/api/stripe/webhook)
+- [x] Upgrade/downgrade flows (pricing page with upgrade buttons)
+- [ ] Trial period implementation (future enhancement)
+
+**Implementation Notes (January 2026):**
+- Settings page shows dynamic tier info with feature list
+- "Manage Subscription" button opens Stripe Customer Portal for paid users
+- Free tier shows "Upgrade" button linking to pricing page
+- Usage limits enforced in `/src/components/onboarding.tsx` and `/src/app/wallets/page.tsx`
 
 **Success criteria:** Users can subscribe and access premium features.
 

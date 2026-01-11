@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Nav } from "@/components/nav";
-import { SubscriptionTier } from "@/lib/stripe/tiers";
+import { SubscriptionTier, SUBSCRIPTION_TIERS } from "@/lib/stripe/tiers";
 
 interface UserSettings {
   default_currency: "USD" | "AUD";
@@ -34,6 +34,7 @@ export default function SettingsPage() {
   const [hasPaidExportFee, setHasPaidExportFee] = useState(false);
   const [showExportPaywall, setShowExportPaywall] = useState(false);
   const [processingExportFee, setProcessingExportFee] = useState(false);
+  const [openingPortal, setOpeningPortal] = useState(false);
   const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -192,8 +193,28 @@ export default function SettingsPage() {
     }
   };
 
+  const handleManageSubscription = async () => {
+    setOpeningPortal(true);
+    try {
+      const response = await fetch("/api/stripe/portal", { method: "POST" });
+      const { url, error } = await response.json();
+
+      if (error) {
+        setMessage({ type: "error", text: error });
+        return;
+      }
+
+      window.location.href = url;
+    } catch (err) {
+      console.error("Portal error:", err);
+      setMessage({ type: "error", text: "Failed to open subscription portal" });
+    } finally {
+      setOpeningPortal(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
-    if (deleteConfirmText !== "DELETE") {
+    if (deleteConfirmText.toUpperCase() !== "DELETE") {
       setMessage({ type: "error", text: 'Please type "DELETE" to confirm' });
       return;
     }
@@ -305,14 +326,59 @@ export default function SettingsPage() {
             <h2 className="text-lg font-semibold text-text-primary">Subscription</h2>
           </div>
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-bg-elevated rounded-xl">
-              <div>
-                <p className="font-medium text-text-primary">Current Plan</p>
-                <p className="text-sm text-text-secondary">Free tier - 1 wallet, 50 transactions, $21 to export</p>
+            <div className="p-4 bg-bg-elevated rounded-xl">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-text-primary">{SUBSCRIPTION_TIERS[subscriptionTier].name} Plan</p>
+                  {subscriptionTier !== "free" && (
+                    <span className="badge badge-success">Active</span>
+                  )}
+                </div>
+                {subscriptionTier === "free" ? (
+                  <a href="/pricing" className="btn-primary">
+                    Upgrade
+                  </a>
+                ) : (
+                  <button
+                    onClick={handleManageSubscription}
+                    disabled={openingPortal}
+                    className="btn-secondary disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {openingPortal ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Opening...
+                      </>
+                    ) : (
+                      "Manage Subscription"
+                    )}
+                  </button>
+                )}
               </div>
-              <a href="/pricing" className="btn-primary">
-                Upgrade
-              </a>
+              <div className="text-sm text-text-secondary">
+                {subscriptionTier === "free" ? (
+                  <p>1 wallet, 50 transactions, $21 one-time export fee</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {SUBSCRIPTION_TIERS[subscriptionTier].features.slice(0, 4).map((feature, i) => (
+                      <li key={i} className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-success flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              {subscriptionTier !== "free" && SUBSCRIPTION_TIERS[subscriptionTier].price > 0 && (
+                <p className="text-xs text-text-muted mt-3">
+                  ${SUBSCRIPTION_TIERS[subscriptionTier].price}/year
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -567,7 +633,7 @@ export default function SettingsPage() {
                   </button>
                   <button
                     onClick={handleDeleteAccount}
-                    disabled={deleting || deleteConfirmText !== "DELETE"}
+                    disabled={deleting || deleteConfirmText.toUpperCase() !== "DELETE"}
                     className="flex-1 bg-error text-white font-semibold py-2.5 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {deleting ? (
@@ -682,8 +748,8 @@ export default function SettingsPage() {
             <p className="text-sm text-text-secondary">Self Custody Tax v0.1.0</p>
             <p className="text-xs text-text-muted mt-1">
               Questions? Email{" "}
-              <a href="mailto:support@selfcustodytax.com" className="text-primary hover:text-primary-glow transition-colors">
-                support@selfcustodytax.com
+              <a href="mailto:selfcustodytax@proton.me" className="text-primary hover:text-primary-glow transition-colors">
+                selfcustodytax@proton.me
               </a>
             </p>
           </div>

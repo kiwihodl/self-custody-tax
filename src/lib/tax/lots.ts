@@ -8,6 +8,37 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import BigNumber from "bignumber.js";
 import { getPrice } from "@/lib/prices";
+import { TOKEN_CONTRACTS } from "@/lib/ethereum/etherscan";
+
+// Reverse mapping: contract address -> asset symbol
+const CONTRACT_TO_ASSET: Record<string, string> = {
+  [TOKEN_CONTRACTS.USDT.toLowerCase()]: "USDT",
+  [TOKEN_CONTRACTS.USDC.toLowerCase()]: "USDC",
+};
+
+/**
+ * Determine asset symbol from transaction and wallet
+ * For ERC-20 tokens, uses token_contract to identify USDT/USDC
+ */
+function getAssetFromTransaction(
+  network: string,
+  tokenContract?: string | null
+): string {
+  if (network === "bitcoin") {
+    return "BTC";
+  }
+
+  // Check if it's a stablecoin
+  if (tokenContract) {
+    const normalizedContract = tokenContract.toLowerCase();
+    if (CONTRACT_TO_ASSET[normalizedContract]) {
+      return CONTRACT_TO_ASSET[normalizedContract];
+    }
+  }
+
+  // Default to ETH for regular Ethereum transactions
+  return "ETH";
+}
 
 export interface TaxLot {
   id: string;
@@ -138,8 +169,8 @@ export async function createTaxLotsForWallet(
       continue;
     }
 
-    // Determine asset
-    const asset = wallet.network === "bitcoin" ? "BTC" : "ETH";
+    // Determine asset from network and token contract
+    const asset = getAssetFromTransaction(wallet.network, tx.token_contract);
 
     // Get amount
     const amount = new BigNumber(tx.amount || "0");
@@ -434,8 +465,6 @@ export async function processSendTransactions(
     return result;
   }
 
-  const asset = wallet.network === "bitcoin" ? "BTC" : "ETH";
-
   // Get send transactions
   const { data: sendTxs, error: txError } = await supabase
     .from("transactions")
@@ -475,6 +504,9 @@ export async function processSendTransactions(
     if (amount.isZero()) {
       continue;
     }
+
+    // Determine asset from network and token contract
+    const asset = getAssetFromTransaction(wallet.network, tx.token_contract);
 
     const disposalDate = new Date(tx.block_timestamp);
 

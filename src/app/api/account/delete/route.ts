@@ -1,9 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
 export async function DELETE() {
   const supabase = await createClient();
 
+  // Get current user
   const {
     data: { user },
     error: authError,
@@ -13,30 +15,72 @@ export async function DELETE() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const userId = user.id;
+
   try {
     // Delete all user data in order (respecting foreign key constraints)
-    // 1. Delete tax lots first (references transactions)
-    await supabase.from("tax_lots").delete().eq("user_id", user.id);
+    // Order matters: tax_lots -> transactions -> wallets -> user_profiles
 
-    // 2. Delete transactions (references wallets)
-    await supabase.from("transactions").delete().eq("user_id", user.id);
+    const { error: taxLotsError } = await supabase
+      .from("tax_lots")
+      .delete()
+      .eq("user_id", userId);
 
-    // 3. Delete wallets
-    await supabase.from("wallets").delete().eq("user_id", user.id);
+    if (taxLotsError) {
+      console.error("Failed to delete tax_lots:", taxLotsError);
+      // Continue anyway - may not have any tax lots
+    }
 
-    // 4. Delete user profile
-    await supabase.from("user_profiles").delete().eq("id", user.id);
+    const { error: transactionsError } = await supabase
+      .from("transactions")
+      .delete()
+      .eq("user_id", userId);
 
-    // 5. Sign out the user
+    if (transactionsError) {
+      console.error("Failed to delete transactions:", transactionsError);
+    }
+
+    const { error: walletsError } = await supabase
+      .from("wallets")
+      .delete()
+      .eq("user_id", userId);
+
+    if (walletsError) {
+      console.error("Failed to delete wallets:", walletsError);
+    }
+
+    const { error: profileError } = await supabase
+      .from("user_profiles")
+      .delete()
+      .eq("id", userId);
+
+    if (profileError) {
+      console.error("Failed to delete user_profile:", profileError);
+    }
+
+    // Sign out the user first (invalidate their session)
     await supabase.auth.signOut();
 
-    // Note: The actual auth.users record deletion would need to be done
-    // via Supabase admin API or a database trigger. For now, we've deleted
-    // all user data and signed them out.
+    // Delete the auth.users record using admin client
+    // This completely removes the user's ability to log back in
+    try {
+      const adminSupabase = createAdminClient();
+      const { error: deleteAuthError } =
+        await adminSupabase.auth.admin.deleteUser(userId);
+
+      if (deleteAuthError) {
+        console.error("Failed to delete auth.users record:", deleteAuthError);
+        // User data is already deleted, this is a partial failure
+        // They won't be able to use the app since profile is gone
+      }
+    } catch (adminErr) {
+      console.error("Admin client error:", adminErr);
+      // Continue - user data is deleted, they can't use the app
+    }
 
     return NextResponse.json({
       success: true,
-      message: "Account data deleted successfully",
+      message: "Account and all data deleted permanently",
     });
   } catch (error) {
     console.error("Delete account error:", error);

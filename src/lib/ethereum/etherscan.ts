@@ -21,6 +21,12 @@ export const TOKEN_DECIMALS = {
 const REQUEST_DELAY_MS = 200;
 let lastRequestTime = 0;
 
+// Use proxy in browser to keep API key server-side
+const isClient = typeof window !== "undefined";
+const ETHERSCAN_BASE = isClient
+  ? "/api/proxy/etherscan"
+  : "https://api.etherscan.io/api";
+
 export interface EtherscanTokenTx {
   blockNumber: string;
   timeStamp: string;
@@ -117,7 +123,18 @@ export async function getTokenBalance(
   await rateLimit();
 
   const contractAddress = TOKEN_CONTRACTS[token];
-  const url = `https://api.etherscan.io/api?module=account&action=tokenbalance&contractaddress=${contractAddress}&address=${address}&tag=latest`;
+  const params = new URLSearchParams({
+    module: "account",
+    action: "tokenbalance",
+    contractaddress: contractAddress,
+    address: address,
+    tag: "latest",
+  });
+  // Add API key for server-side calls (proxy handles it for client)
+  if (!isClient && process.env.ETHERSCAN_API_KEY) {
+    params.set("apikey", process.env.ETHERSCAN_API_KEY);
+  }
+  const url = `${ETHERSCAN_BASE}?${params.toString()}`;
 
   try {
     console.log(`[Etherscan] Fetching ${token} balance for ${address.slice(0, 10)}...`);
@@ -185,7 +202,20 @@ export async function getTokenTransactions(
   await rateLimit();
 
   const contractAddress = TOKEN_CONTRACTS[token];
-  const url = `https://api.etherscan.io/api?module=account&action=tokentx&contractaddress=${contractAddress}&address=${address}&startblock=${startBlock}&endblock=99999999&sort=asc`;
+  const params = new URLSearchParams({
+    module: "account",
+    action: "tokentx",
+    contractaddress: contractAddress,
+    address: address,
+    startblock: startBlock.toString(),
+    endblock: "99999999",
+    sort: "asc",
+  });
+  // Add API key for server-side calls (proxy handles it for client)
+  if (!isClient && process.env.ETHERSCAN_API_KEY) {
+    params.set("apikey", process.env.ETHERSCAN_API_KEY);
+  }
+  const url = `${ETHERSCAN_BASE}?${params.toString()}`;
 
   try {
     console.log(`[Etherscan] Fetching ${token} transactions for ${address.slice(0, 10)}...`);

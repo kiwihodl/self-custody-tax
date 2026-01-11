@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Nav } from "@/components/nav";
+import { TaxTabs } from "@/components/tax-tabs";
 import type { TaxSummary } from "@/lib/tax/reporting";
 import type { TaxLot } from "@/lib/tax/lots";
 
@@ -196,6 +197,9 @@ export default function TaxPage() {
     <div className="min-h-screen bg-bg-base">
       <Nav />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Tabs */}
+        <TaxTabs />
+
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-6 mb-8">
           <div>

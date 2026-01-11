@@ -4,6 +4,21 @@ import Image from "next/image";
 export default function Home() {
   return (
     <main className="min-h-screen bg-bg-base">
+      {/* Header with Sign In */}
+      <header className="absolute top-0 left-0 right-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-end">
+            <Link
+              href="/auth/login"
+              className="text-sm font-medium px-4 py-2 rounded-lg transition-all duration-150
+                text-[#FBDC7B]/80 hover:text-[#FBDC7B] hover:bg-[#FBDC7B]/10"
+            >
+              Sign In
+            </Link>
+          </div>
+        </div>
+      </header>
+
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         {/* Mesh gradient background */}

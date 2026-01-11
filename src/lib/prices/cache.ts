@@ -8,6 +8,9 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { fetchHistoricalPrice, parseStorageDate } from "./coingecko";
 
+// Stablecoins that are pegged to USD - no API lookup needed
+const STABLECOINS = new Set(["USDT", "USDC", "DAI", "BUSD", "TUSD", "USDP"]);
+
 export interface CachedPrice {
   asset: string;
   date: string; // YYYY-MM-DD
@@ -41,6 +44,12 @@ export async function getPrice(
   const dateObj = typeof date === "string" ? new Date(date) : date;
   const dateStr = formatDate(dateObj);
   const assetUpper = asset.toUpperCase();
+
+  // Stablecoins are pegged to USD - return 1.0 without API call
+  if (STABLECOINS.has(assetUpper)) {
+    console.log(`[PriceCache] Stablecoin ${assetUpper}: $1.00`);
+    return 1.0;
+  }
 
   // Check cache first
   const { data: cached, error: cacheError } = await supabase
@@ -117,6 +126,15 @@ export async function getPrices(
   const assetUpper = asset.toUpperCase();
   const results = new Map<string, number>();
   const dateStrings = dates.map((d) => formatDate(d));
+
+  // Stablecoins are pegged to USD - return 1.0 for all dates
+  if (STABLECOINS.has(assetUpper)) {
+    console.log(`[PriceCache] Stablecoin ${assetUpper}: $1.00 for ${dates.length} dates`);
+    for (const dateStr of dateStrings) {
+      results.set(dateStr, 1.0);
+    }
+    return results;
+  }
 
   // Fetch all cached prices at once
   const { data: cached, error } = await supabase
