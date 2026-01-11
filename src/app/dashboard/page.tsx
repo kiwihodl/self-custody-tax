@@ -164,10 +164,10 @@ export default function DashboardPage() {
             <p className="text-text-secondary text-sm font-medium">Crypto</p>
           </div>
           <p className="text-2xl font-bold font-mono text-text-primary">
-            {cryptoWallets.length > 0 ? `$${cryptoBalance.toFixed(2)}` : "--"}
+            ${cryptoBalance.toFixed(2)}
           </p>
           <p className="text-text-muted text-sm mt-2">
-            {cryptoWallets.length > 0 ? `${cryptoWallets.length} wallet${cryptoWallets.length !== 1 ? "s" : ""} (ETH)` : "ETH coming soon"}
+            {cryptoWallets.length} wallet{cryptoWallets.length !== 1 ? "s" : ""} (ETH)
           </p>
         </div>
 
