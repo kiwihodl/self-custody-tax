@@ -62,3 +62,42 @@ export interface ClientSummary {
   total_usd: number;
   clients_needing_attention: number;
 }
+
+// Phase 10: White-Label Reports
+export interface AdvisorProfile {
+  id: string;
+  firm_name: string | null;
+  logo_path: string | null;
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  country: string;
+  footer_text: string | null;
+  website_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpdateBrandingRequest {
+  firm_name?: string;
+  primary_color?: string;
+  secondary_color?: string;
+  accent_color?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  address_line_1?: string;
+  address_line_2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  footer_text?: string;
+  website_url?: string;
+}

@@ -340,8 +340,8 @@ export default function AdvisorDashboardPage() {
           <div className="card p-4">
             <p className="text-text-secondary text-sm">Quick Actions</p>
             <div className="flex gap-2 mt-2">
-              <Link href="/advisor/reports" className="text-xs text-primary hover:underline">
-                Bulk Reports
+              <Link href="/advisor/branding" className="text-xs text-primary hover:underline">
+                Branding
               </Link>
               <Link href="/advisor/audit-log" className="text-xs text-primary hover:underline">
                 Audit Log

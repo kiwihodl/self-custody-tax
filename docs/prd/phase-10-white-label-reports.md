@@ -1,11 +1,17 @@
 # PRD: White-Label Reports (Phase 10)
 
-**Status:** Draft
+**Status:** Approved for Implementation
 **Author:** Self Custody Tax Team
 **Created:** January 11, 2026
 **Last Updated:** January 11, 2026
 **Target Tier:** Advisor ($499/year)
 **Dependencies:** Phase 9 (Multi-Client Dashboard)
+
+## Competitive Research Summary
+
+**Market Gap Identified:** Only CoinTracking Corporate offers white-label reports among major crypto tax platforms. Koinly, CoinTracker, TaxBit, Ledgible, and CryptoTaxCalculator all lack branded report customization - a significant market opportunity.
+
+**Technical Decision:** Use **@react-pdf/renderer** for PDF generation (lightweight, React-native, excellent for serverless) with fallback consideration for Puppeteer if complex layouts needed.
 
 ---
 

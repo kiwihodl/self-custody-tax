@@ -17,6 +17,7 @@
     "@bitcoinerlab/secp256k1": "^1.2.0",
     "@noble/hashes": "^2.0.1",
     "@react-email/components": "^1.0.4",
+    "@react-pdf/renderer": "^4.3.2",
     "@scure/bip32": "^2.0.1",
     "@scure/btc-signer": "^2.0.1",
     "@stripe/stripe-js": "^8.6.1",
