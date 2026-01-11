@@ -42,12 +42,12 @@ const config: Config = {
           DEFAULT: "#4A9FFF",
           muted: "rgba(74, 159, 255, 0.15)",
         },
-        // Text
+        // Text - Warm cream tones for legibility on dark backgrounds
         text: {
-          primary: "#F5F5F7",
-          secondary: "#A0A0B0",
-          tertiary: "#707080",
-          muted: "#505060",
+          primary: "#F5F5F0",      // Warm white (slight cream)
+          secondary: "#D4CFC5",    // Light cream - readable descriptions
+          tertiary: "#A8A299",     // Medium warm gray - placeholders
+          muted: "#7D786F",        // Dark warm gray - subtle text
         },
         // Borders
         border: {
