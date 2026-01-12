@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { Nav } from "@/components/nav";
 import { TaxTabs } from "@/components/tax-tabs";
+import { HarvestSimulation } from "@/components/harvest-simulation";
+
+type GainsTab = "unrealized" | "harvest";
 
 interface UnrealizedLot {
   id: string;
@@ -38,6 +41,7 @@ type SortField = "date" | "amount" | "costBasis" | "gainLoss" | "percent";
 type FilterTerm = "all" | "short" | "long";
 
 export default function GainsPage() {
+  const [activeTab, setActiveTab] = useState<GainsTab>("unrealized");
   const [data, setData] = useState<UnrealizedGainsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -209,6 +213,42 @@ export default function GainsPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tabs */}
         <TaxTabs />
+
+        {/* Gains Sub-tabs */}
+        <div className="flex border-b border-border mb-8">
+          <button
+            onClick={() => setActiveTab("unrealized")}
+            className={`px-4 py-3 text-sm font-medium transition-colors relative ${
+              activeTab === "unrealized"
+                ? "text-primary"
+                : "text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            Unrealized Gains
+            {activeTab === "unrealized" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("harvest")}
+            className={`px-4 py-3 text-sm font-medium transition-colors relative ${
+              activeTab === "harvest"
+                ? "text-primary"
+                : "text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            Tax-Loss Harvesting
+            {activeTab === "harvest" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+            )}
+          </button>
+        </div>
+
+        {/* Tax-Loss Harvesting Tab */}
+        {activeTab === "harvest" ? (
+          <HarvestSimulation />
+        ) : (
+          <>
 
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-6 mb-8">
@@ -612,6 +652,8 @@ export default function GainsPage() {
             </div>
           </>
         ) : null}
+        </>
+        )}
       </main>
     </div>
   );

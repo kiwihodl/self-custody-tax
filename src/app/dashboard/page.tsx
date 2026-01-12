@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { OnboardingWizard } from "@/components/onboarding";
+import { HoldingAlerts } from "@/components/holding-alerts";
 import type { Wallet } from "@/types";
 
 interface Transaction {
@@ -340,6 +341,32 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Holding Period Alerts - only show if user has wallets */}
+      {wallets.length > 0 && (
+        <div className="card">
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
+                <svg className="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-text-primary">Long-Term Eligibility</h2>
+                <p className="text-xs text-text-muted">Holdings approaching 1-year mark</p>
+              </div>
+            </div>
+            <a
+              href="/gains"
+              className="text-primary text-sm hover:text-primary-glow transition-colors font-medium"
+            >
+              View All →
+            </a>
+          </div>
+          <HoldingAlerts compact limit={3} />
+        </div>
+      )}
 
       {/* Recent Transactions */}
       <div className="card">
