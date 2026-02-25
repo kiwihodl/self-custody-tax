@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'export',
   webpack: (config, { isServer }) => {
     // Handle optional ledger-bitcoin dependency from @bitcoinerlab/descriptors
     // We don't use Ledger integration, so stub it out
