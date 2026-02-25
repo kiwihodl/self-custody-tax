@@ -1,62 +1,38 @@
 /**
- * Internal Transfer Detection
- *
- * Detects and links transactions that are transfers between
- * the user's own wallets (not taxable events).
+ * Internal Transfer Detection — local-first (IndexedDB)
  */
 
-import { SupabaseClient } from "@supabase/supabase-js";
+import { db, type DBTransaction } from "@/lib/db";
 import { deriveAddressesFromXpub } from "./derivation";
 import { deriveAddressesFromDescriptor } from "./descriptors";
-import type { Wallet, Transaction } from "@/types";
 
-const DERIVATION_DEPTH = 20; // Check first 20 addresses per wallet
+const DERIVATION_DEPTH = 20;
 
 /**
- * Get all addresses owned by a user across all their wallets
+ * Get all addresses across all user wallets
  */
-export async function getAllUserAddresses(
-  supabase: SupabaseClient,
-  userId: string
-): Promise<Set<string>> {
+export async function getAllUserAddresses(): Promise<Set<string>> {
   const addresses = new Set<string>();
+  const wallets = await db.wallets.where("is_deleted").equals(0).toArray();
 
-  // Get all user's wallets
-  const { data: wallets } = await supabase
-    .from("wallets")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("is_deleted", false);
+  for (const wallet of wallets) {
+    if (wallet.address) addresses.add(wallet.address.toLowerCase());
 
-  if (!wallets) return addresses;
-
-  for (const wallet of wallets as Wallet[]) {
-    // Single address
-    if (wallet.address) {
-      addresses.add(wallet.address.toLowerCase());
-    }
-
-    // xpub - derive addresses
     if (wallet.xpub && !wallet.multisig_config) {
       try {
-        const derived = deriveAddressesFromXpub(wallet.xpub, DERIVATION_DEPTH, true);
-        derived.forEach(addr => addresses.add(addr.toLowerCase()));
-      } catch (err) {
-        console.warn(`Failed to derive addresses from xpub for wallet ${wallet.id}:`, err);
-      }
+        deriveAddressesFromXpub(wallet.xpub, DERIVATION_DEPTH, true)
+          .forEach((a) => addresses.add(a.toLowerCase()));
+      } catch { /* skip */ }
     }
 
-    // Multisig descriptor - derive addresses
-    if (wallet.multisig_config?.descriptor) {
-      try {
-        const derived = deriveAddressesFromDescriptor(
-          wallet.multisig_config.descriptor,
-          DERIVATION_DEPTH,
-          true
-        );
-        derived.forEach(addr => addresses.add(addr.toLowerCase()));
-      } catch (err) {
-        console.warn(`Failed to derive addresses from descriptor for wallet ${wallet.id}:`, err);
+    if (wallet.multisig_config) {
+      const config = typeof wallet.multisig_config === "string"
+        ? JSON.parse(wallet.multisig_config) : wallet.multisig_config;
+      if (config?.descriptor) {
+        try {
+          deriveAddressesFromDescriptor(config.descriptor, DERIVATION_DEPTH, true)
+            .forEach((a) => addresses.add(a.toLowerCase()));
+        } catch { /* skip */ }
       }
     }
   }
@@ -65,134 +41,72 @@ export async function getAllUserAddresses(
 }
 
 /**
- * Check if a transaction is an internal transfer
- * (all inputs and relevant outputs belong to user)
+ * Check if a transaction is internal (all inputs + outputs belong to user)
  */
 export function isInternalTransfer(
-  tx: Transaction,
+  tx: DBTransaction,
   userAddresses: Set<string>
 ): boolean {
-  // For Bitcoin transactions with UTXO data
-  if (tx.inputs && tx.outputs) {
-    // Check if ALL inputs are from user's addresses
-    const allInputsOurs = tx.inputs.every(
-      (input: { address?: string }) =>
-        input.address && userAddresses.has(input.address.toLowerCase())
-    );
+  try {
+    const inputs = typeof tx.inputs === "string" ? JSON.parse(tx.inputs) : tx.inputs;
+    const outputs = typeof tx.outputs === "string" ? JSON.parse(tx.outputs) : tx.outputs;
 
-    if (!allInputsOurs) return false;
+    if (inputs?.length && outputs?.length) {
+      const allInputsOurs = inputs.every(
+        (i: { address?: string }) => i.address && userAddresses.has(i.address.toLowerCase())
+      );
+      if (!allInputsOurs) return false;
 
-    // If all inputs are ours and all outputs are ours, it's internal
-    const allOutputsOurs = tx.outputs.every(
-      (output: { address?: string }) =>
-        output.address && userAddresses.has(output.address.toLowerCase())
-    );
-
-    if (allOutputsOurs) return true;
-
-    // If inputs are ours but some outputs aren't, it's a send (not internal)
-    // Unless ALL non-user outputs are dust (< 546 sats), treat as internal
-    return false;
-  }
-
-  // For Ethereum transactions
-  if (tx.from_address && tx.to_address) {
-    const fromOurs = userAddresses.has(tx.from_address.toLowerCase());
-    const toOurs = userAddresses.has(tx.to_address.toLowerCase());
-    return fromOurs && toOurs;
-  }
+      const allOutputsOurs = outputs.every(
+        (o: { address?: string }) => o.address && userAddresses.has(o.address.toLowerCase())
+      );
+      return allOutputsOurs;
+    }
+  } catch { /* parse error */ }
 
   return false;
 }
 
 /**
- * Find matching receive transaction for a send transaction
- * (Same blockchain txid, different wallet)
+ * Detect and mark internal transfers across all wallets
  */
-export async function findLinkedTransaction(
-  supabase: SupabaseClient,
-  userId: string,
-  txid: string,
-  excludeWalletId: string
-): Promise<string | null> {
-  const { data } = await supabase
-    .from("transactions")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("txid", txid)
-    .neq("wallet_id", excludeWalletId)
-    .limit(1)
-    .single();
+export async function detectInternalTransfers(): Promise<{ detected: number; linked: number }> {
+  const userAddresses = await getAllUserAddresses();
+  if (userAddresses.size === 0) return { detected: 0, linked: 0 };
 
-  return data?.id || null;
-}
+  const transactions = await db.transactions
+    .filter((tx) => !tx.is_internal_transfer)
+    .toArray();
 
-/**
- * Detect and mark internal transfers for a user
- * Returns count of transfers detected
- */
-export async function detectInternalTransfers(
-  supabase: SupabaseClient,
-  userId: string
-): Promise<{ detected: number; linked: number }> {
-  // Get all user addresses
-  const userAddresses = await getAllUserAddresses(supabase, userId);
-
-  if (userAddresses.size === 0) {
-    return { detected: 0, linked: 0 };
-  }
-
-  // Get all user transactions that aren't already marked as internal
-  const { data: transactions } = await supabase
-    .from("transactions")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("is_internal_transfer", false);
-
-  if (!transactions || transactions.length === 0) {
-    return { detected: 0, linked: 0 };
-  }
+  if (transactions.length === 0) return { detected: 0, linked: 0 };
 
   let detected = 0;
   let linked = 0;
 
-  for (const tx of transactions as Transaction[]) {
+  for (const tx of transactions) {
     if (isInternalTransfer(tx, userAddresses)) {
-      // Mark as internal transfer
-      await supabase
-        .from("transactions")
-        .update({
-          is_internal_transfer: true,
-          category: "internal",
-        })
-        .eq("id", tx.id);
-
+      await db.transactions.update(tx.id!, {
+        is_internal_transfer: true,
+        category: "internal",
+        updated_at: new Date().toISOString(),
+      });
       detected++;
 
-      // Try to find and link the matching transaction
-      const linkedTxId = await findLinkedTransaction(
-        supabase,
-        userId,
-        tx.txid,
-        tx.wallet_id
-      );
+      // Find linked transaction (same txid, different wallet)
+      const linkedTx = await db.transactions
+        .where("txid")
+        .equals(tx.txid)
+        .filter((t) => t.wallet_id !== tx.wallet_id)
+        .first();
 
-      if (linkedTxId) {
-        // Link both transactions to each other
-        await supabase
-          .from("transactions")
-          .update({ linked_transaction_id: linkedTxId })
-          .eq("id", tx.id);
-
-        await supabase
-          .from("transactions")
-          .update({
-            linked_transaction_id: tx.id,
-            is_internal_transfer: true,
-            category: "internal",
-          })
-          .eq("id", linkedTxId);
-
+      if (linkedTx) {
+        await db.transactions.update(tx.id!, { linked_transaction_id: linkedTx.id });
+        await db.transactions.update(linkedTx.id!, {
+          linked_transaction_id: tx.id,
+          is_internal_transfer: true,
+          category: "internal",
+          updated_at: new Date().toISOString(),
+        });
         linked++;
       }
     }
@@ -204,84 +118,29 @@ export async function detectInternalTransfers(
 /**
  * Manually link two transactions as internal transfer pair
  */
-export async function linkTransactions(
-  supabase: SupabaseClient,
-  userId: string,
-  txId1: string,
-  txId2: string
-): Promise<boolean> {
-  // Verify both transactions belong to user
-  const { data: txs } = await supabase
-    .from("transactions")
-    .select("id, txid, user_id")
-    .eq("user_id", userId)
-    .in("id", [txId1, txId2]);
+export async function linkTransactions(txId1: number, txId2: number): Promise<boolean> {
+  const tx1 = await db.transactions.get(txId1);
+  const tx2 = await db.transactions.get(txId2);
+  if (!tx1 || !tx2) return false;
 
-  if (!txs || txs.length !== 2) {
-    return false;
-  }
-
-  // Link them to each other
-  await supabase
-    .from("transactions")
-    .update({
-      linked_transaction_id: txId2,
-      is_internal_transfer: true,
-      category: "internal",
-    })
-    .eq("id", txId1);
-
-  await supabase
-    .from("transactions")
-    .update({
-      linked_transaction_id: txId1,
-      is_internal_transfer: true,
-      category: "internal",
-    })
-    .eq("id", txId2);
-
+  const now = new Date().toISOString();
+  await db.transactions.update(txId1, { linked_transaction_id: txId2, is_internal_transfer: true, category: "internal", updated_at: now });
+  await db.transactions.update(txId2, { linked_transaction_id: txId1, is_internal_transfer: true, category: "internal", updated_at: now });
   return true;
 }
 
 /**
- * Unlink a transaction pair and restore original category
+ * Unlink a transaction pair
  */
-export async function unlinkTransactions(
-  supabase: SupabaseClient,
-  userId: string,
-  txId: string
-): Promise<boolean> {
-  // Get the transaction and its linked partner
-  const { data: tx } = await supabase
-    .from("transactions")
-    .select("id, linked_transaction_id, user_id")
-    .eq("id", txId)
-    .eq("user_id", userId)
-    .single();
-
+export async function unlinkTransactions(txId: number): Promise<boolean> {
+  const tx = await db.transactions.get(txId);
   if (!tx) return false;
 
-  // Clear link and reset category
-  await supabase
-    .from("transactions")
-    .update({
-      linked_transaction_id: null,
-      is_internal_transfer: false,
-      category: "send", // Will need manual recategorization
-    })
-    .eq("id", txId);
+  const now = new Date().toISOString();
+  await db.transactions.update(txId, { linked_transaction_id: undefined, is_internal_transfer: false, category: "send", updated_at: now });
 
-  // Clear the partner's link too
   if (tx.linked_transaction_id) {
-    await supabase
-      .from("transactions")
-      .update({
-        linked_transaction_id: null,
-        is_internal_transfer: false,
-        category: "receive",
-      })
-      .eq("id", tx.linked_transaction_id);
+    await db.transactions.update(tx.linked_transaction_id, { linked_transaction_id: undefined, is_internal_transfer: false, category: "receive", updated_at: now });
   }
-
   return true;
 }

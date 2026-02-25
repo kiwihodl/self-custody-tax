@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Nav } from "@/components/nav";
+import Nav from "@/components/nav";
 
 interface FAQItem {
   question: string;

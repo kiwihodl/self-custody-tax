@@ -1,4 +1,4 @@
-import { Nav } from "@/components/nav";
+import Nav from "@/components/nav";
 import { Skeleton, SkeletonTable } from "@/components/skeleton";
 
 export default function TransactionsLoading() {

@@ -1,473 +1,112 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { OnboardingWizard } from "@/components/onboarding";
-import { HoldingAlerts } from "@/components/holding-alerts";
-import type { Wallet } from "@/types";
-
-interface Transaction {
-  id: string;
-  txid: string;
-  category: "receive" | "send" | "internal";
-  amount: string;
-  block_timestamp: string | null;
-  wallet_id: string;
-  network: "bitcoin" | "ethereum";
-}
-
-interface WalletWithName extends Wallet {
-  name: string;
-}
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
+import { useDashboardStats } from "@/lib/db/hooks";
+import Link from "next/link";
 
 export default function DashboardPage() {
-  const [wallets, setWallets] = useState<WalletWithName[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const router = useRouter();
-  const supabase = createClient();
+  const wallets = useLiveQuery(() => db.wallets.where("is_deleted").equals(0).toArray()) ?? [];
+  const recentTxs = useLiveQuery(() => db.transactions.orderBy("block_timestamp").reverse().limit(10).toArray()) ?? [];
+  const stats = useDashboardStats();
 
-  const fetchData = useCallback(async () => {
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-
-    // Fetch wallets
-    const { data: walletData } = await supabase
-      .from("wallets")
-      .select("*")
-      .eq("is_deleted", false)
-      .order("created_at", { ascending: false });
-
-    if (walletData) {
-      setWallets(walletData);
-
-      // Check if onboarding should be shown (no wallets + hasn't been dismissed for THIS user)
-      if (walletData.length === 0 && user) {
-        const dismissKey = `onboarding_dismissed_${user.id}`;
-        const dismissed = localStorage.getItem(dismissKey);
-        if (!dismissed) {
-          setShowOnboarding(true);
-        }
-      }
-    }
-
-    // Fetch recent transactions (last 10)
-    const { data: txData } = await supabase
-      .from("transactions")
-      .select("id, txid, category, amount, block_timestamp, wallet_id, network")
-      .order("block_timestamp", { ascending: false, nullsFirst: true })
-      .limit(10);
-
-    if (txData) {
-      setTransactions(txData);
-    }
-
-    setLoading(false);
-  }, [supabase]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // Calculate totals by asset category
-  // Bitcoin: standalone category
-  const btcWallets = wallets.filter((w) => w.network === "bitcoin");
-  const btcBalance = btcWallets.reduce((sum, w) => sum + (w.balance || 0), 0);
-
-  // Crypto: ETH and other non-Bitcoin, non-stablecoin cryptos
-  // Currently, ETH wallets would be ethereum network but not stablecoin type
-  const cryptoWallets = wallets.filter((w) => w.network === "ethereum" && w.type !== "stablecoin");
-  const cryptoBalance = cryptoWallets.reduce((sum, w) => sum + (w.balance || 0), 0);
-
-  // Stablecoins: USDT/USDC wallets
-  const stablecoinWallets = wallets.filter((w) => w.type === "stablecoin");
-  const stablecoinBalance = stablecoinWallets.reduce((sum, w) => sum + (w.balance || 0), 0);
-
-  // Get wallet by ID
-  const getWallet = (walletId: string) => {
-    return wallets.find((w) => w.id === walletId);
-  };
-
-  // Get wallet name by ID
-  const getWalletName = (walletId: string) => {
-    const wallet = getWallet(walletId);
-    return wallet?.name || "Unknown";
-  };
-
-  // Format amount with color based on network
-  const formatAmount = (amount: string, category: string, network: "bitcoin" | "ethereum") => {
-    const num = parseFloat(amount);
-    const isBtc = network === "bitcoin";
-    const formatted = isBtc ? num.toFixed(8) : `$${num.toFixed(2)}`;
-
-    if (category === "receive") {
-      return <span className="text-success">+{formatted}</span>;
-    } else if (category === "send") {
-      return <span className="text-error">-{formatted}</span>;
-    }
-    return <span className="text-text-tertiary">{formatted}</span>;
-  };
-
-  // Format wallet balance based on network
-  const formatWalletBalance = (wallet: WalletWithName) => {
-    if (wallet.balance === null) return "--";
-    if (wallet.network === "ethereum") {
-      return `$${wallet.balance.toFixed(2)}`;
-    }
-    return `${wallet.balance.toFixed(8)} BTC`;
-  };
-
-  if (loading) {
+  if (wallets.length === 0) {
     return (
-      <div className="space-y-8 animate-fade-in">
-        <div>
-          <h1 className="text-3xl font-bold text-text-primary">Dashboard</h1>
-          <p className="text-text-secondary mt-1">Loading your portfolio...</p>
-        </div>
-        <div className="grid md:grid-cols-4 gap-6">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="card animate-pulse">
-              <div className="h-4 bg-bg-hover rounded w-20 mb-3" />
-              <div className="h-8 bg-bg-hover rounded w-32" />
-            </div>
-          ))}
-        </div>
+      <div className="max-w-2xl mx-auto p-8 text-center">
+        <h1 className="text-2xl font-bold mb-4">Welcome to Self Custody Tax</h1>
+        <p className="text-gray-400 mb-6">
+          Privacy-first Bitcoin tax tracking. All data stays on your device.
+        </p>
+        <Link
+          href="/wallets"
+          className="inline-block px-6 py-3 bg-[#FBDC7B] text-black font-semibold rounded-lg hover:bg-[#e5c86e] transition-colors"
+        >
+          Add Your First Wallet
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Portfolio Summary - Asset Categories */}
-      <div className="grid md:grid-cols-4 gap-6">
-        {/* Bitcoin - Standalone Category */}
-        <a
-          href="/wallets?filter=bitcoin"
-          className="card group hover:border-primary/30 transition-all duration-300 cursor-pointer"
-        >
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <svg className="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12.5 3.5c-3.6 0-6.5 2.9-6.5 6.5 0 2.6 1.5 4.8 3.7 5.8v4.7c0 .6.4 1 1 1h3.5c.6 0 1-.4 1-1v-4.7c2.2-1 3.8-3.2 3.8-5.8 0-3.6-2.9-6.5-6.5-6.5zm.5 6.5c0 .6-.4 1-1 1s-1-.4-1-1 .4-1 1-1 1 .4 1 1z"/>
-              </svg>
-            </div>
-            <p className="text-text-secondary text-sm font-medium">Bitcoin</p>
-          </div>
-          <p className="text-2xl font-bold font-mono text-text-primary">{btcBalance.toFixed(8)}</p>
-          <p className="text-text-muted text-sm mt-2">
-            {btcWallets.length} wallet{btcWallets.length !== 1 ? "s" : ""}
-          </p>
-        </a>
+    <div className="max-w-6xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
 
-        {/* Crypto - ETH and other cryptos (not Bitcoin, not Stablecoins) */}
-        <a
-          href="/wallets?filter=crypto"
-          className="card group hover:border-purple-500/30 transition-all duration-300 cursor-pointer"
-        >
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-              <svg className="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M11.944 17.97L4.58 13.62 11.943 24l7.37-10.38-7.372 4.35h.003zM12.056 0L4.69 12.223l7.365 4.354 7.365-4.35L12.056 0z"/>
-              </svg>
-            </div>
-            <p className="text-text-secondary text-sm font-medium">Crypto</p>
-          </div>
-          <p className="text-2xl font-bold font-mono text-text-primary">
-            ${cryptoBalance.toFixed(2)}
-          </p>
-          <p className="text-text-muted text-sm mt-2">
-            {cryptoWallets.length} wallet{cryptoWallets.length !== 1 ? "s" : ""} (ETH)
-          </p>
-        </a>
-
-        {/* Stablecoins - USDT/USDC */}
-        <a
-          href="/wallets?filter=stablecoin"
-          className="card group hover:border-info/30 transition-all duration-300 cursor-pointer"
-        >
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
-              <svg className="w-5 h-5 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <p className="text-text-secondary text-sm font-medium">Stablecoins</p>
-          </div>
-          <p className="text-2xl font-bold font-mono text-text-primary">${stablecoinBalance.toFixed(2)}</p>
-          <p className="text-text-muted text-sm mt-2">
-            {stablecoinWallets.length} wallet{stablecoinWallets.length !== 1 ? "s" : ""} (USDT/USDC)
-          </p>
-        </a>
-
-        {/* Total Wallets */}
-        <a
-          href="/wallets"
-          className="card group hover:border-success/30 transition-all duration-300 cursor-pointer"
-        >
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
-              <svg className="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
-              </svg>
-            </div>
-            <p className="text-text-secondary text-sm font-medium">Wallets</p>
-          </div>
-          <p className="text-2xl font-bold text-text-primary">{wallets.length}</p>
-          <p className="text-text-muted text-sm mt-2">
-            {wallets.filter((w) => w.sync_status === "idle").length} synced
-          </p>
-        </a>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <StatCard label="Wallets" value={stats?.walletCount ?? 0} />
+        <StatCard label="Transactions" value={stats?.transactionCount ?? 0} />
+        <StatCard label="Cost Basis" value={`$${(stats?.totalCostBasis ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
+        <StatCard
+          label="Realized Gain/Loss"
+          value={`$${(stats?.totalGainLoss ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          color={(stats?.totalGainLoss ?? 0) >= 0 ? "text-green-400" : "text-red-400"}
+        />
       </div>
 
-      {/* Quick Actions - only show if no wallets */}
-      {wallets.length === 0 && (
-        <div className="card">
-          <h2 className="text-xl font-semibold mb-6 text-text-primary">Get Started</h2>
-          <div className="grid md:grid-cols-3 gap-4">
-            <a
-              href="/wallets"
-              className="p-5 rounded-xl border border-border bg-bg-elevated hover:border-primary/50 hover:bg-bg-hover transition-all duration-300 group"
-            >
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
-                <span className="text-primary font-bold">1</span>
-              </div>
-              <h3 className="font-semibold text-text-primary group-hover:text-primary transition-colors">
-                Add a Wallet
-              </h3>
-              <p className="text-text-tertiary text-sm mt-2 leading-relaxed">
-                Import your xpub to start tracking
-              </p>
-            </a>
-
-            <div className="p-5 rounded-xl border border-border bg-bg-surface opacity-50">
-              <div className="w-10 h-10 rounded-lg bg-bg-hover flex items-center justify-center mb-4">
-                <span className="text-text-muted font-bold">2</span>
-              </div>
-              <h3 className="font-semibold text-text-tertiary">Sync Transactions</h3>
-              <p className="text-text-muted text-sm mt-2 leading-relaxed">
-                Automatic after wallet is added
-              </p>
-            </div>
-
-            <div className="p-5 rounded-xl border border-border bg-bg-surface opacity-50">
-              <div className="w-10 h-10 rounded-lg bg-bg-hover flex items-center justify-center mb-4">
-                <span className="text-text-muted font-bold">3</span>
-              </div>
-              <h3 className="font-semibold text-text-tertiary">Generate Tax Report</h3>
-              <p className="text-text-muted text-sm mt-2 leading-relaxed">
-                Available in the Tax section
-              </p>
-            </div>
-          </div>
+      {/* Wallets */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold">Wallets</h2>
+          <Link href="/wallets" className="text-[#FBDC7B] text-sm hover:underline">Manage →</Link>
         </div>
-      )}
-
-      {/* Wallets Overview */}
-      <div className="card">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-text-primary">Wallets</h2>
-          <a href="/wallets" className="text-primary text-sm hover:text-primary-glow transition-colors font-medium">
-            Manage Wallets →
-          </a>
-        </div>
-
-        {wallets.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-16 h-16 rounded-full bg-bg-hover flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
-              </svg>
-            </div>
-            <p className="text-text-tertiary mb-4">No wallets added yet</p>
-            <a href="/wallets" className="btn-primary inline-block">
-              Add Your First Wallet
-            </a>
-          </div>
-        ) : (
-          <div className="max-h-[180px] overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
-            {wallets.slice(0, 2).map((wallet) => (
-              <a
-                key={wallet.id}
-                href={`/wallets/${wallet.id}`}
-                className="flex justify-between items-center p-4 rounded-xl bg-bg-elevated hover:bg-bg-hover border border-transparent hover:border-border transition-all duration-200"
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    wallet.network === "bitcoin"
-                      ? "bg-primary/10"
-                      : wallet.type === "stablecoin"
-                        ? "bg-info/10"
-                        : "bg-purple-500/10"
-                  }`}>
-                    {wallet.network === "bitcoin" ? (
-                      <svg className="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12.5 3.5c-3.6 0-6.5 2.9-6.5 6.5 0 2.6 1.5 4.8 3.7 5.8v4.7c0 .6.4 1 1 1h3.5c.6 0 1-.4 1-1v-4.7c2.2-1 3.8-3.2 3.8-5.8 0-3.6-2.9-6.5-6.5-6.5zm.5 6.5c0 .6-.4 1-1 1s-1-.4-1-1 .4-1 1-1 1 .4 1 1z"/>
-                      </svg>
-                    ) : wallet.type === "stablecoin" ? (
-                      <svg className="w-5 h-5 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M11.944 17.97L4.58 13.62 11.943 24l7.37-10.38-7.372 4.35h.003zM12.056 0L4.69 12.223l7.365 4.354 7.365-4.35L12.056 0z"/>
-                      </svg>
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-medium text-text-primary">{wallet.name}</p>
-                    <p className="text-sm text-text-tertiary capitalize">
-                      {wallet.type.replace("_", " ")} • {wallet.network === "bitcoin" ? "Bitcoin" : wallet.type === "stablecoin" ? "Stablecoins" : "Crypto"}
-                    </p>
-                  </div>
+        <div className="grid gap-3">
+          {wallets.map((w) => (
+            <Link key={w.id} href={`/wallets/${w.id}`} className="block p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-medium">{w.name}</p>
+                  <p className="text-sm text-gray-400">{w.type} · {w.network}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-mono text-text-primary">
-                    {formatWalletBalance(wallet)}
+                  <p className="font-mono">{w.balance != null ? `${w.balance.toFixed(8)} BTC` : "—"}</p>
+                  <p className="text-sm text-gray-400">
+                    {w.last_synced_at ? `Synced ${new Date(w.last_synced_at).toLocaleDateString()}` : "Not synced"}
                   </p>
-                  <span className={`badge ${
-                    wallet.sync_status === "syncing"
-                      ? "badge-warning"
-                      : wallet.sync_status === "error"
-                      ? "badge-error"
-                      : "badge-success"
-                  }`}>
-                    {wallet.sync_status}
-                  </span>
                 </div>
-              </a>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent Transactions */}
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold">Recent Transactions</h2>
+          <Link href="/transactions" className="text-[#FBDC7B] text-sm hover:underline">View All →</Link>
+        </div>
+        {recentTxs.length === 0 ? (
+          <p className="text-gray-400 text-center py-8">No transactions yet. Sync a wallet to get started.</p>
+        ) : (
+          <div className="space-y-2">
+            {recentTxs.map((tx) => (
+              <div key={tx.id} className="p-3 bg-gray-800 rounded-lg flex justify-between items-center">
+                <div>
+                  <span className={`text-sm font-medium ${tx.category === "receive" ? "text-green-400" : tx.category === "send" ? "text-red-400" : "text-gray-400"}`}>
+                    {tx.category.toUpperCase()}
+                  </span>
+                  <p className="text-xs text-gray-500 font-mono">{tx.txid.slice(0, 12)}...</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono text-sm">{parseFloat(tx.amount || "0").toFixed(8)} BTC</p>
+                  <p className="text-xs text-gray-500">
+                    {tx.block_timestamp ? new Date(tx.block_timestamp).toLocaleDateString() : "Pending"}
+                  </p>
+                </div>
+              </div>
             ))}
           </div>
         )}
       </div>
+    </div>
+  );
+}
 
-      {/* Holding Period Alerts - only show if user has wallets */}
-      {wallets.length > 0 && (
-        <div className="card">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
-                <svg className="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-text-primary">Long-Term Eligibility</h2>
-                <p className="text-xs text-text-muted">Holdings approaching 1-year mark</p>
-              </div>
-            </div>
-            <a
-              href="/gains"
-              className="text-primary text-sm hover:text-primary-glow transition-colors font-medium"
-            >
-              View All →
-            </a>
-          </div>
-          <HoldingAlerts compact limit={3} />
-        </div>
-      )}
-
-      {/* Recent Transactions */}
-      <div className="card">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-text-primary">Recent Transactions</h2>
-          <a
-            href="/transactions"
-            className="text-primary text-sm hover:text-primary-glow transition-colors font-medium"
-          >
-            View All →
-          </a>
-        </div>
-
-        {transactions.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-16 h-16 rounded-full bg-bg-hover flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-              </svg>
-            </div>
-            <p className="text-text-tertiary">No transactions yet</p>
-            <p className="text-text-muted text-sm mt-2">
-              Transactions will appear here once you add and sync a wallet
-            </p>
-          </div>
-        ) : (
-          <div className="max-h-[180px] overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
-            {transactions.slice(0, 2).map((tx) => {
-              const wallet = getWallet(tx.wallet_id);
-              const network = tx.network || wallet?.network || "bitcoin";
-              return (
-                <div
-                  key={tx.id}
-                  className="flex justify-between items-center p-4 rounded-xl bg-bg-elevated"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      tx.category === "receive" ? "bg-success/10" : tx.category === "send" ? "bg-error/10" : "bg-bg-hover"
-                    }`}>
-                      {tx.category === "receive" ? (
-                        <svg className="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                        </svg>
-                      ) : tx.category === "send" ? (
-                        <svg className="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
-                        </svg>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-text-primary capitalize">{tx.category}</p>
-                      <p className="text-xs text-text-muted">
-                        {getWalletName(tx.wallet_id)}
-                        {network === "ethereum" && <span className="ml-1 text-info">• ETH</span>}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-mono text-sm whitespace-nowrap">
-                      {formatAmount(tx.amount, tx.category, network as "bitcoin" | "ethereum")}
-                    </p>
-                    <p className="text-xs text-text-muted">
-                      {tx.block_timestamp
-                        ? new Date(tx.block_timestamp).toLocaleDateString()
-                        : "Pending"}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Onboarding Wizard */}
-      {showOnboarding && (
-        <OnboardingWizard
-          onComplete={async () => {
-            setShowOnboarding(false);
-            // Mark as dismissed for this user
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-              localStorage.setItem(`onboarding_dismissed_${user.id}`, "true");
-            }
-            fetchData();
-            router.refresh();
-          }}
-          onSkip={async () => {
-            // Mark as dismissed for this user
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-              localStorage.setItem(`onboarding_dismissed_${user.id}`, "true");
-            }
-            setShowOnboarding(false);
-          }}
-        />
-      )}
+function StatCard({ label, value, color }: { label: string; value: string | number; color?: string }) {
+  return (
+    <div className="p-4 bg-gray-800 rounded-lg">
+      <p className="text-sm text-gray-400 mb-1">{label}</p>
+      <p className={`text-xl font-semibold ${color || ""}`}>{value}</p>
     </div>
   );
 }

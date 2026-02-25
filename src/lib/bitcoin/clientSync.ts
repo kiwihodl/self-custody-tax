@@ -1,44 +1,22 @@
 /**
- * Client-side wallet sync using Mempool.space public API
- * This runs entirely in the browser, bypassing server-side auth issues
- * Supports:
- *   - Single addresses
- *   - xpub HD wallets (BIP44/49/84)
- *   - Multisig descriptors (wsh, sh-wsh)
- *
- * Key constraints:
- * - Mempool.space has NO native xpub endpoint (confirmed via GitHub issue #177)
- * - Must query each address individually
- * - Rate limited to ~10 req/sec, we use conservative approach with token bucket
- * - Uses AbortController for proper timeout cancellation
- *
- * Performance optimizations:
- * - Token bucket rate limiter for smooth request flow
- * - Exponential backoff with jitter on failures
- * - Batch processing with configurable concurrency
- * - Progress callbacks for UI feedback
+ * Client-side wallet sync using Mempool.space API (or custom node)
+ * Local-first — stores directly to IndexedDB via Dexie
  */
 
-import { SupabaseClient } from "@supabase/supabase-js";
 import BigNumber from "bignumber.js";
-import type { Wallet, TransactionCategory } from "@/types";
+import type { Wallet } from "@/types";
+import { db, type DBTransaction } from "@/lib/db";
+import { getSetting } from "@/lib/db";
 import { deriveAddressesFromXpub, validateXpub } from "./derivation";
 import { deriveAddressesFromDescriptor, validateDescriptor } from "./descriptors";
 import { mempoolRateLimiter, retryWithBackoff } from "@/lib/utils/rate-limiter";
+import type { TransactionCategory } from "@/types";
 
-// Use local proxy to avoid CORS issues
-const PROXY_API = "/api/proxy/mempool";
-
-// Sync timeout - 90 seconds (increased for larger wallets)
+const DEFAULT_MEMPOOL_API = "https://mempool.space/api";
 const SYNC_TIMEOUT_MS = 90000;
-
-// Number of addresses to derive for xpub wallets (external + change)
-// Using 10 for better coverage while staying within rate limits
 const XPUB_GAP_LIMIT = 10;
-
-// Batch processing configuration
-const BATCH_SIZE = 3; // Process 3 addresses concurrently
-const BATCH_DELAY_MS = 500; // Delay between batches
+const BATCH_SIZE = 3;
+const BATCH_DELAY_MS = 500;
 
 interface MempoolTx {
   txid: string;
@@ -59,7 +37,6 @@ interface MempoolTx {
   vout: Array<{
     value: number;
     scriptpubkey_address?: string;
-    scriptpubkey_type?: string;
   }>;
 }
 
@@ -87,108 +64,66 @@ export interface SyncProgress {
 
 export type SyncProgressCallback = (progress: SyncProgress) => void;
 
-/**
- * Cancellable delay that respects AbortController
- */
+async function getMempoolApi(): Promise<string> {
+  return getSetting<string>("mempoolApi", DEFAULT_MEMPOOL_API);
+}
+
 function delay(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new DOMException("Aborted", "AbortError"));
-      return;
-    }
-    const timeoutId = setTimeout(resolve, ms);
-    signal?.addEventListener("abort", () => {
-      clearTimeout(timeoutId);
-      reject(new DOMException("Aborted", "AbortError"));
-    });
+    if (signal?.aborted) { reject(new DOMException("Aborted", "AbortError")); return; }
+    const t = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () => { clearTimeout(t); reject(new DOMException("Aborted", "AbortError")); });
   });
 }
 
-/**
- * Fetch with retry using exponential backoff
- */
-async function fetchWithRetry(
-  url: string,
-  signal?: AbortSignal
-): Promise<Response> {
+async function fetchWithRetry(url: string, signal?: AbortSignal): Promise<Response> {
   return retryWithBackoff(
     async () => {
       const res = await fetch(url, { signal });
-
-      if (res.ok) {
-        return res;
-      }
-
-      if (res.status === 429) {
-        throw new Error("RATE_LIMITED");
-      }
-
-      const error = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-      throw new Error(error.error || `Failed: ${res.status}`);
+      if (res.ok) return res;
+      if (res.status === 429) throw new Error("RATE_LIMITED");
+      throw new Error(`HTTP ${res.status}`);
     },
     {
       maxRetries: 3,
       baseDelayMs: 1000,
       maxDelayMs: 10000,
       signal,
-      shouldRetry: (err) => {
-        if (err instanceof Error && err.message === "RATE_LIMITED") {
-          return true;
-        }
-        return false;
-      },
-      onRetry: (err, attempt, delayMs) => {
-        console.log(`[Sync] Retry ${attempt + 1}: waiting ${delayMs}ms...`, err);
-      },
+      shouldRetry: (err) => err instanceof Error && err.message === "RATE_LIMITED",
+      onRetry: (err, attempt, delayMs) => console.log(`[Sync] Retry ${attempt + 1}: waiting ${delayMs}ms...`),
     }
   );
 }
 
-/**
- * Fetch address data with rate limiting
- */
 async function fetchAddressData(
+  apiBase: string,
   address: string,
   signal?: AbortSignal
 ): Promise<{ info: AddressInfo; txs: MempoolTx[] }> {
-  // Use rate limiter for both requests
   const info = await mempoolRateLimiter.execute(async () => {
-    const res = await fetchWithRetry(
-      `${PROXY_API}?path=/address/${encodeURIComponent(address)}`,
-      signal
-    );
+    const res = await fetchWithRetry(`${apiBase}/address/${encodeURIComponent(address)}`, signal);
     return res.json();
   }, signal);
 
   const txs = await mempoolRateLimiter.execute(async () => {
-    const res = await fetchWithRetry(
-      `${PROXY_API}?path=/address/${encodeURIComponent(address)}/txs`,
-      signal
-    );
+    const res = await fetchWithRetry(`${apiBase}/address/${encodeURIComponent(address)}/txs`, signal);
     return res.json();
   }, signal);
 
   return { info, txs };
 }
 
-/**
- * Process addresses in batches with concurrent requests
- */
 async function fetchAddressesInBatches(
+  apiBase: string,
   addresses: string[],
   signal: AbortSignal,
   onProgress?: SyncProgressCallback
 ): Promise<Map<string, { info: AddressInfo; txs: MempoolTx[] }>> {
   const results = new Map<string, { info: AddressInfo; txs: MempoolTx[] }>();
   let fetchedCount = 0;
-  let failedCount = 0;
 
   for (let i = 0; i < addresses.length; i += BATCH_SIZE) {
-    // Check abort before starting batch
-    if (signal.aborted) {
-      console.log(`[Sync] Aborted after ${fetchedCount} addresses`);
-      break;
-    }
+    if (signal.aborted) break;
 
     const batch = addresses.slice(i, i + BATCH_SIZE);
     onProgress?.({
@@ -198,346 +133,179 @@ async function fetchAddressesInBatches(
       message: `Fetching addresses ${i + 1}-${Math.min(i + BATCH_SIZE, addresses.length)} of ${addresses.length}`,
     });
 
-    // Process batch concurrently
     const batchPromises = batch.map(async (address) => {
       try {
-        const data = await fetchAddressData(address, signal);
+        const data = await fetchAddressData(apiBase, address, signal);
         return { address, data, success: true as const };
       } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") {
-          throw err;
-        }
-        console.warn(`[Sync] Failed to fetch ${address.slice(0, 12)}...:`, err);
+        if (err instanceof DOMException && err.name === "AbortError") throw err;
         return { address, data: null, success: false as const };
       }
     });
 
     try {
       const batchResults = await Promise.all(batchPromises);
-
-      for (const result of batchResults) {
-        if (result.success && result.data) {
-          results.set(result.address, result.data);
-          fetchedCount++;
-        } else {
-          failedCount++;
-        }
+      for (const r of batchResults) {
+        if (r.success && r.data) { results.set(r.address, r.data); fetchedCount++; }
       }
     } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") {
-        break;
-      }
+      if (err instanceof DOMException && err.name === "AbortError") break;
     }
 
-    // Delay between batches (except last)
-    if (i + BATCH_SIZE < addresses.length) {
-      await delay(BATCH_DELAY_MS, signal);
-    }
+    if (i + BATCH_SIZE < addresses.length) await delay(BATCH_DELAY_MS, signal);
   }
 
-  console.log(`[Sync] Fetched ${fetchedCount}/${addresses.length} addresses (${failedCount} failed)`);
   return results;
 }
 
-/**
- * Determine transaction category
- */
 function categorize(
   tx: MempoolTx,
   addresses: string[]
 ): { category: TransactionCategory; amount: number; fee: number; isInternal: boolean } {
   const addrSet = new Set(addresses.map((a) => a.toLowerCase()));
-
-  let totalIn = 0;
-  let totalOut = 0;
+  let totalIn = 0, totalOut = 0;
 
   for (const inp of tx.vin) {
-    if (inp.prevout?.scriptpubkey_address) {
-      if (addrSet.has(inp.prevout.scriptpubkey_address.toLowerCase())) {
-        totalIn += inp.prevout.value;
-      }
+    if (inp.prevout?.scriptpubkey_address && addrSet.has(inp.prevout.scriptpubkey_address.toLowerCase())) {
+      totalIn += inp.prevout.value;
     }
   }
-
   for (const out of tx.vout) {
-    if (out.scriptpubkey_address) {
-      if (addrSet.has(out.scriptpubkey_address.toLowerCase())) {
-        totalOut += out.value;
-      }
+    if (out.scriptpubkey_address && addrSet.has(out.scriptpubkey_address.toLowerCase())) {
+      totalOut += out.value;
     }
   }
 
-  if (totalIn === 0 && totalOut > 0) {
-    return { category: "receive", amount: totalOut, fee: 0, isInternal: false };
-  } else if (totalIn > 0 && totalOut === 0) {
-    return { category: "send", amount: totalIn - tx.fee, fee: tx.fee, isInternal: false };
-  } else if (totalIn > 0 && totalOut > 0) {
+  if (totalIn === 0 && totalOut > 0) return { category: "receive", amount: totalOut, fee: 0, isInternal: false };
+  if (totalIn > 0 && totalOut === 0) return { category: "send", amount: totalIn - tx.fee, fee: tx.fee, isInternal: false };
+  if (totalIn > 0 && totalOut > 0) {
     const net = totalOut - totalIn;
-    if (net < 0) {
-      return { category: "send", amount: Math.abs(net), fee: tx.fee, isInternal: false };
-    }
+    if (net < 0) return { category: "send", amount: Math.abs(net), fee: tx.fee, isInternal: false };
     return { category: "internal", amount: 0, fee: tx.fee, isInternal: true };
   }
-
   return { category: "receive", amount: 0, fee: 0, isInternal: false };
 }
 
 /**
- * Internal sync implementation with AbortController support
- */
-async function syncWalletInternal(
-  supabase: SupabaseClient,
-  wallet: Wallet,
-  signal: AbortSignal,
-  onProgress?: SyncProgressCallback
-): Promise<ClientSyncResult> {
-  // Update status to syncing
-  await supabase
-    .from("wallets")
-    .update({ sync_status: "syncing" })
-    .eq("id", wallet.id);
-
-  onProgress?.({
-    phase: "deriving",
-    current: 0,
-    total: 1,
-    message: "Preparing wallet addresses...",
-  });
-
-  // Determine addresses to sync
-  let addresses: string[] = [];
-
-  if (wallet.address) {
-    // Single address mode
-    addresses = [wallet.address];
-    console.log(`[Sync] Single address mode: ${wallet.address}`);
-  } else if (wallet.multisig_config?.descriptor) {
-    // Multisig descriptor mode - derive addresses from descriptor
-    const validation = validateDescriptor(wallet.multisig_config.descriptor);
-    if (!validation.valid) {
-      throw new Error(`Invalid descriptor: ${validation.error}`);
-    }
-
-    // Derive addresses from multisig descriptor
-    addresses = deriveAddressesFromDescriptor(wallet.multisig_config.descriptor, XPUB_GAP_LIMIT, true);
-    const quorum = wallet.multisig_config.quorum_required && wallet.multisig_config.total_keys
-      ? `${wallet.multisig_config.quorum_required}-of-${wallet.multisig_config.total_keys}`
-      : "multisig";
-    console.log(`[Sync] Descriptor mode (${quorum}): derived ${addresses.length} addresses`);
-  } else if (wallet.xpub) {
-    // HD wallet mode - derive addresses from xpub
-    const validation = validateXpub(wallet.xpub);
-    if (!validation.valid) {
-      throw new Error(`Invalid xpub: ${validation.error}`);
-    }
-
-    // Derive limited addresses to avoid rate limits (external + change)
-    addresses = deriveAddressesFromXpub(wallet.xpub, XPUB_GAP_LIMIT, true);
-    console.log(`[Sync] xpub mode: derived ${addresses.length} addresses (${XPUB_GAP_LIMIT} external + ${XPUB_GAP_LIMIT} change)`);
-  } else {
-    throw new Error("Wallet has no address, descriptor, or xpub");
-  }
-
-  // Fetch data for all addresses using batch processing
-  const addressDataMap = await fetchAddressesInBatches(addresses, signal, onProgress);
-
-  // If we got nothing at all, fail
-  if (addressDataMap.size === 0) {
-    return {
-      success: false,
-      newTransactions: 0,
-      balance: 0,
-      error: signal.aborted
-        ? "Sync timed out - try again"
-        : "Failed to fetch any address data",
-    };
-  }
-
-  // Aggregate balance across fetched addresses
-  let totalBalance = 0;
-  let addressesWithBalance = 0;
-  for (const [addr, data] of Array.from(addressDataMap.entries())) {
-    const addrBalance =
-      data.info.chain_stats.funded_txo_sum - data.info.chain_stats.spent_txo_sum;
-    if (addrBalance > 0) {
-      addressesWithBalance++;
-      console.log(`[Sync] Address with balance: ${addr.slice(0, 12)}... = ${addrBalance} sats`);
-    }
-    totalBalance += addrBalance;
-  }
-  const balanceBtc = new BigNumber(totalBalance).dividedBy(100000000).toNumber();
-  console.log(`[Sync] Total: ${totalBalance} sats (${balanceBtc} BTC) across ${addressesWithBalance} addresses`);
-
-  // Deduplicate transactions by txid
-  const allTxs: MempoolTx[] = [];
-  const seenTxids = new Set<string>();
-  for (const data of Array.from(addressDataMap.values())) {
-    for (const tx of data.txs) {
-      if (!seenTxids.has(tx.txid)) {
-        seenTxids.add(tx.txid);
-        allTxs.push(tx);
-      }
-    }
-  }
-  console.log(`[Sync] Found ${allTxs.length} unique transactions`);
-
-  // Get existing txids from database
-  const { data: existing } = await supabase
-    .from("transactions")
-    .select("txid")
-    .eq("wallet_id", wallet.id);
-
-  const existingIds = new Set((existing || []).map((t) => t.txid));
-
-  // Process new transactions
-  onProgress?.({
-    phase: "processing",
-    current: 0,
-    total: allTxs.length,
-    message: `Processing ${allTxs.length} transactions...`,
-  });
-
-  let newCount = 0;
-  let skippedCount = 0;
-  let errorCount = 0;
-
-  for (let i = 0; i < allTxs.length; i++) {
-    const tx = allTxs[i];
-
-    if (existingIds.has(tx.txid)) {
-      skippedCount++;
-      continue;
-    }
-
-    // Pass all addresses for accurate categorization
-    const { category, amount, fee, isInternal } = categorize(tx, addresses);
-    const amountBtc = new BigNumber(amount).dividedBy(100000000).toString();
-    const feeBtc = new BigNumber(fee).dividedBy(100000000).toString();
-
-    const { error: txErr } = await supabase.from("transactions").insert({
-      user_id: wallet.user_id,
-      wallet_id: wallet.id,
-      txid: tx.txid,
-      network: "bitcoin",
-      block_height: tx.status.block_height || null,
-      block_timestamp: tx.status.block_time
-        ? new Date(tx.status.block_time * 1000).toISOString()
-        : null,
-      inputs: tx.vin.map((inp) => ({
-        txid: inp.txid,
-        vout: inp.vout,
-        value: inp.prevout?.value || 0,
-        address: inp.prevout?.scriptpubkey_address || "",
-      })),
-      outputs: tx.vout.map((o, idx) => ({
-        index: idx,
-        value: o.value,
-        address: o.scriptpubkey_address || "",
-      })),
-      amount: amountBtc,
-      fee: feeBtc,
-      category,
-      is_internal_transfer: isInternal,
-    });
-
-    if (txErr) {
-      errorCount++;
-      console.error(`[Sync] Failed to insert tx ${tx.txid}:`, txErr.message);
-    } else {
-      newCount++;
-    }
-
-    // Update progress every 10 transactions
-    if (i % 10 === 0) {
-      onProgress?.({
-        phase: "processing",
-        current: i + 1,
-        total: allTxs.length,
-        message: `Processed ${i + 1} of ${allTxs.length} transactions`,
-      });
-    }
-  }
-  console.log(`[Sync] Result: ${newCount} new, ${skippedCount} skipped, ${errorCount} errors`);
-
-  // Update wallet with data we got
-  onProgress?.({
-    phase: "saving",
-    current: 1,
-    total: 1,
-    message: "Saving wallet data...",
-  });
-
-  await supabase
-    .from("wallets")
-    .update({
-      balance: balanceBtc,
-      sync_status: "idle",
-      last_synced_at: new Date().toISOString(),
-    })
-    .eq("id", wallet.id);
-
-  return {
-    success: true,
-    newTransactions: newCount,
-    balance: balanceBtc,
-    addressCount: addressDataMap.size,
-  };
-}
-
-/**
- * Sync a wallet from the client side with proper timeout using AbortController
- * Supports both single addresses and xpub-based HD wallets
- *
- * Key improvements:
- * - AbortController for cancellation and timeout
- * - Token bucket rate limiting for smooth API usage
- * - Exponential backoff with jitter on failures
- * - Batch processing for large wallets
- * - Progress callbacks for UI feedback
+ * Sync a wallet — fetches from Mempool API, stores in IndexedDB
  */
 export async function syncWalletClient(
-  supabase: SupabaseClient,
-  wallet: Wallet,
+  walletId: number,
   onProgress?: SyncProgressCallback
 ): Promise<ClientSyncResult> {
-  // Create AbortController for timeout
   const controller = new AbortController();
   const { signal } = controller;
-
-  // Set up timeout to abort
-  const timeoutId = setTimeout(() => {
-    console.log(`[Sync] Timeout after ${SYNC_TIMEOUT_MS / 1000}s - aborting`);
-    controller.abort();
-  }, SYNC_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
 
   try {
-    const result = await syncWalletInternal(supabase, wallet, signal, onProgress);
-    clearTimeout(timeoutId);
-    return result;
-  } catch (err) {
-    clearTimeout(timeoutId);
+    const wallet = await db.wallets.get(walletId);
+    if (!wallet) throw new Error("Wallet not found");
 
-    // Determine error message
-    let errorMessage: string;
-    if (err instanceof DOMException && err.name === "AbortError") {
-      errorMessage = `Sync timed out after ${SYNC_TIMEOUT_MS / 1000} seconds`;
-    } else if (err instanceof Error) {
-      errorMessage = err.message;
+    const apiBase = await getMempoolApi();
+
+    await db.wallets.update(walletId, { sync_status: "syncing" });
+
+    onProgress?.({ phase: "deriving", current: 0, total: 1, message: "Preparing wallet addresses..." });
+
+    // Determine addresses
+    let addresses: string[] = [];
+    if (wallet.address) {
+      addresses = [wallet.address];
+    } else if (wallet.multisig_config) {
+      const config = typeof wallet.multisig_config === "string" ? JSON.parse(wallet.multisig_config) : wallet.multisig_config;
+      if (config.descriptor) {
+        const v = validateDescriptor(config.descriptor);
+        if (!v.valid) throw new Error(`Invalid descriptor: ${v.error}`);
+        addresses = deriveAddressesFromDescriptor(config.descriptor, XPUB_GAP_LIMIT, true);
+      }
+    } else if (wallet.xpub) {
+      const v = validateXpub(wallet.xpub);
+      if (!v.valid) throw new Error(`Invalid xpub: ${v.error}`);
+      addresses = deriveAddressesFromXpub(wallet.xpub, XPUB_GAP_LIMIT, true);
     } else {
-      errorMessage = "Unknown error";
+      throw new Error("Wallet has no address, descriptor, or xpub");
     }
 
-    // Update wallet status to error
-    await supabase
-      .from("wallets")
-      .update({ sync_status: "error", sync_error: errorMessage })
-      .eq("id", wallet.id);
+    // Fetch from Mempool
+    const addressDataMap = await fetchAddressesInBatches(apiBase, addresses, signal, onProgress);
+    if (addressDataMap.size === 0) {
+      return { success: false, newTransactions: 0, balance: 0, error: signal.aborted ? "Sync timed out" : "Failed to fetch address data" };
+    }
 
-    return {
-      success: false,
-      newTransactions: 0,
-      balance: 0,
-      error: errorMessage,
-    };
+    // Calculate balance
+    let totalBalance = 0;
+    for (const data of Array.from(addressDataMap.values())) {
+      totalBalance += data.info.chain_stats.funded_txo_sum - data.info.chain_stats.spent_txo_sum;
+    }
+    const balanceBtc = new BigNumber(totalBalance).dividedBy(100000000).toNumber();
+
+    // Deduplicate transactions
+    const allTxs: MempoolTx[] = [];
+    const seenTxids = new Set<string>();
+    for (const data of Array.from(addressDataMap.values())) {
+      for (const tx of data.txs) {
+        if (!seenTxids.has(tx.txid)) { seenTxids.add(tx.txid); allTxs.push(tx); }
+      }
+    }
+
+    // Check existing
+    const existingTxs = await db.transactions.where("wallet_id").equals(walletId).toArray();
+    const existingIds = new Set(existingTxs.map((t) => t.txid));
+
+    onProgress?.({ phase: "processing", current: 0, total: allTxs.length, message: `Processing ${allTxs.length} transactions...` });
+
+    // Insert new transactions
+    const now = new Date().toISOString();
+    const newTxs: DBTransaction[] = [];
+
+    for (const tx of allTxs) {
+      if (existingIds.has(tx.txid)) continue;
+
+      const { category, amount, fee, isInternal } = categorize(tx, addresses);
+      const amountBtc = new BigNumber(amount).dividedBy(100000000).toString();
+      const feeBtc = new BigNumber(fee).dividedBy(100000000).toString();
+
+      newTxs.push({
+        wallet_id: walletId,
+        txid: tx.txid,
+        network: "bitcoin",
+        block_height: tx.status.block_height || null,
+        block_timestamp: tx.status.block_time ? new Date(tx.status.block_time * 1000).toISOString() : null,
+        inputs: JSON.stringify(tx.vin.map((inp) => ({
+          txid: inp.txid, vout: inp.vout, value: inp.prevout?.value || 0,
+          address: inp.prevout?.scriptpubkey_address || "",
+        }))),
+        outputs: JSON.stringify(tx.vout.map((o, idx) => ({
+          index: idx, value: o.value, address: o.scriptpubkey_address || "",
+        }))),
+        amount: amountBtc,
+        fee: feeBtc,
+        fee_usd: 0,
+        category,
+        is_internal_transfer: isInternal,
+        created_at: now,
+        updated_at: now,
+      });
+    }
+
+    if (newTxs.length > 0) await db.transactions.bulkAdd(newTxs);
+
+    // Update wallet
+    await db.wallets.update(walletId, {
+      balance: balanceBtc,
+      sync_status: "idle",
+      last_synced_at: now,
+      sync_error: undefined,
+    });
+
+    clearTimeout(timeoutId);
+    return { success: true, newTransactions: newTxs.length, balance: balanceBtc, addressCount: addressDataMap.size };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    const errorMessage = err instanceof DOMException && err.name === "AbortError"
+      ? "Sync timed out" : err instanceof Error ? err.message : "Unknown error";
+
+    await db.wallets.update(walletId, { sync_status: "error", sync_error: errorMessage });
+    return { success: false, newTransactions: 0, balance: 0, error: errorMessage };
   }
 }

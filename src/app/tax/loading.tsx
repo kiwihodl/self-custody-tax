@@ -1,4 +1,4 @@
-import { Nav } from "@/components/nav";
+import Nav from "@/components/nav";
 import { SkeletonTaxPage } from "@/components/skeleton";
 
 export default function TaxLoading() {

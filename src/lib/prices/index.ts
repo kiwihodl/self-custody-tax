@@ -1,7 +1,3 @@
-/**
- * Price services - historical and current price fetching
- */
-
 export {
   fetchHistoricalPrice,
   fetchCurrentPrice,
@@ -14,7 +10,6 @@ export {
   getPrice,
   getPriceAtTimestamp,
   getPrices,
-  populateCacheForRange,
   getLatestCachedPrice,
   formatDate,
   type CachedPrice,
