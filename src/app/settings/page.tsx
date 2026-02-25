@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useSettings } from "@/lib/db/hooks";
 import { setSetting, exportAllData, importAllData, clearAllData, getSetting } from "@/lib/db";
-import type { UserSettings, CostBasisMethod } from "@/types";
+import type { UserSettings } from "@/types";
 
 export default function SettingsPage() {
   const settings = useSettings();

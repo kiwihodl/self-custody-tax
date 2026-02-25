@@ -1,13 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, getSetting, type DBWallet, type DBTransaction, type DBTaxLot } from './index';
-import type { CostBasisMethod, UserSettings } from '@/types';
+import { db, getSetting } from './index';
+import type { UserSettings } from '@/types';
 
 // ============================================
 // Wallet Hooks
 // ============================================
 
 export function useWallets() {
-  const wallets = useLiveQuery(() => db.wallets.where('is_deleted').equals(0).toArray()) ?? [];
+  const wallets = useLiveQuery(() => db.wallets.filter((w) => !w.is_deleted).toArray()) ?? [];
   return wallets;
 }
 
@@ -83,7 +83,7 @@ export function useSettings() {
 
 export function useDashboardStats() {
   return useLiveQuery(async () => {
-    const wallets = await db.wallets.where('is_deleted').equals(0).toArray();
+    const wallets = await db.wallets.filter((w) => !w.is_deleted).toArray();
     const transactions = await db.transactions.count();
     const taxLots = await db.taxLots.toArray();
 

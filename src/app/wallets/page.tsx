@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db, type DBWallet } from "@/lib/db";
+import { db } from "@/lib/db";
 import { syncWalletClient, type SyncProgress } from "@/lib/bitcoin/clientSync";
 import Link from "next/link";
 
@@ -52,7 +52,7 @@ export default function WalletsPage() {
           {wallets.map((w) => (
             <div key={w.id} className="p-4 bg-gray-800 rounded-lg">
               <div className="flex justify-between items-start">
-                <Link href={`/wallets/${w.id}`} className="hover:text-[#FBDC7B] transition-colors">
+                <Link href={`/wallets/detail?id=${w.id}`} className="hover:text-[#FBDC7B] transition-colors">
                   <h3 className="font-semibold">{w.name}</h3>
                   <p className="text-sm text-gray-400">{w.type} · {w.network}</p>
                   {w.xpub && <p className="text-xs text-gray-500 font-mono mt-1">{w.xpub.slice(0, 20)}...</p>}

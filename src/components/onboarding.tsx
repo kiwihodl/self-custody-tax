@@ -1,7 +1,7 @@
 "use client";
 
 // Onboarding is now handled inline in the dashboard page
-// This component is kept as a placeholder for backward compatibility
-export function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function OnboardingWizard(_props: { onComplete?: () => void }) {
   return null;
 }

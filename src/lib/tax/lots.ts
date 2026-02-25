@@ -321,7 +321,7 @@ export async function processAllWallets(
 ): Promise<{ created: number; processed: number; errors: string[] }> {
   const result = { created: 0, processed: 0, errors: [] as string[] };
 
-  const wallets = await db.wallets.where("is_deleted").equals(0).toArray();
+  const wallets = await db.wallets.filter((w) => !w.is_deleted).toArray();
   if (wallets.length === 0) {
     result.errors.push("No wallets found");
     return result;

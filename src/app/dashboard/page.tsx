@@ -51,7 +51,7 @@ export default function DashboardPage() {
         </div>
         <div className="grid gap-3">
           {wallets.map((w) => (
-            <Link key={w.id} href={`/wallets/${w.id}`} className="block p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
+            <Link key={w.id} href={`/wallets/detail?id=${w.id}`} className="block p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors">
               <div className="flex justify-between items-center">
                 <div>
                   <p className="font-medium">{w.name}</p>

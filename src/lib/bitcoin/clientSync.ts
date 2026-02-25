@@ -4,7 +4,6 @@
  */
 
 import BigNumber from "bignumber.js";
-import type { Wallet } from "@/types";
 import { db, type DBTransaction } from "@/lib/db";
 import { getSetting } from "@/lib/db";
 import { deriveAddressesFromXpub, validateXpub } from "./derivation";

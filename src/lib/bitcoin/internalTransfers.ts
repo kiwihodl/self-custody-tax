@@ -13,7 +13,7 @@ const DERIVATION_DEPTH = 20;
  */
 export async function getAllUserAddresses(): Promise<Set<string>> {
   const addresses = new Set<string>();
-  const wallets = await db.wallets.where("is_deleted").equals(0).toArray();
+  const wallets = await db.wallets.filter((w) => !w.is_deleted).toArray();
 
   for (const wallet of wallets) {
     if (wallet.address) addresses.add(wallet.address.toLowerCase());

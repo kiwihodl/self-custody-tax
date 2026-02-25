@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { syncWalletClient, type SyncProgress } from "@/lib/bitcoin/clientSync";
@@ -9,9 +9,8 @@ import { importCSV, detectExchange } from "@/lib/import";
 import Link from "next/link";
 
 export default function WalletDetailPage() {
-  const { id } = useParams();
-  const walletId = parseInt(id as string);
-  const router = useRouter();
+  const searchParams = useSearchParams();
+  const walletId = parseInt(searchParams.get("id") || "0");
 
   const wallet = useLiveQuery(() => db.wallets.get(walletId), [walletId]);
   const transactions = useLiveQuery(
