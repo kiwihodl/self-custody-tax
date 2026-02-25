@@ -22,6 +22,7 @@
     "bignumber.js": "^9",
     "dexie": "^4.3.0",
     "dexie-react-hooks": "^4.2.0",
+    "geist": "^1.7.0",
     "next": "14.2.35",
     "react": "^18",
     "react-dom": "^18",
